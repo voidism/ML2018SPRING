@@ -33,22 +33,33 @@ def matrix_expansion(data):
     idx = 0
     Y = []
     for mon in range(12):
+        if mon == 8:
+            continue
         for piv in range(471):
             temp = []
-            for term in data:
-                temp = temp + term[471*mon+piv : 471*mon+piv+9 ]
+            #for term in data:
+            #    temp = temp + term[471*mon+piv : 471*mon+piv+9 ]
+            temp+=data[5][471*mon+piv+7 : 471*mon+piv+9 ]
+            temp+=data[7][471 * mon + piv+7: 471 * mon + piv + 9]
+            temp+=data[8][471 * mon + piv: 471 * mon + piv + 9]
+            temp+=data[9][471 * mon + piv: 471 * mon + piv + 9]
+            for i in data[9][471 * mon + piv: 471 * mon + piv + 9]:
+                temp.append(str(float(i)**2))
+            temp+=data[10][471 * mon + piv+7: 471 * mon + piv + 9]
             temp.append("1.0")
             collection.append(temp)
             Y.append(data[9][471*mon+piv+9])
     return collection, Y
 
-def readin_X_Y():
+def load_data():
     datalist = csv_to_matrix("train.csv")
     X, Y = matrix_expansion(datalist)
     np.save('X.npy', X)
     np.save('Y.npy', Y)
     X = np.load('X.npy')
     Y = np.load('Y.npy')
+    X = np.array(X, dtype=float)
+    Y = np.array(Y, dtype=float)
     randomize = np.arange(len(X))
     np.random.shuffle(randomize)
     X,Y = (X[randomize], Y[randomize])
@@ -62,19 +73,17 @@ def readin_X_Y():
 def train():
     #datalist = csv_to_matrix("train.csv")
     #print(datalist)
-    X, Y, Vx, Vy = readin_X_Y()
+    X, Y, Vx, Vy = load_data()
 
-    #w = np.full((18,9),0)
-    w = np.zeros((18*9+1,))
-    #b = 0.0
-    #print(w)
+    #w = np.zeros((len(X[0]),))
+    w = np.load('model_w.npy')
 
     succ = 0
     fail = 0
     cost = 0
-    iteration = 1000
-    w_lr = 10
-    w_gras = np.ones((18*9+1,))
+    iteration = 50000
+    w_lr = 1000
+    w_gras = np.ones((len(X[0]),))
     #b_gras = 1
     total_cost = 0
     total = 0
@@ -89,26 +98,6 @@ def train():
         w_grad = x.transpose().dot(loss)
         w_gras += w_grad**2
         w = w - w_lr * (w_grad / np.sqrt(w_gras))
-        '''
-        for xo,y in zip(X,Y):
-            x = np.array(xo,dtype=float)
-            res = w.dot(x)
-            #res = resmat.sum() + b
-            loss = (float(y) - res)
-            if loss==float('Inf'):
-                print("=========Fail=========")
-                break
-            cost = math.sqrt(loss**2/(18*9+1))
-            total_cost += cost
-            total+=1
-            if cost > 1:
-                fail +=1
-            else:
-                succ +=1
-            w_grad = -2*loss*x
-            w_gras += w_grad**2
-            w = w - w_lr*( w_grad / np.sqrt(w_gras) )
-        '''
         try:
             print("cost:", cost,"\tave cost:",total_cost/total)
             succ = 0
@@ -128,13 +117,18 @@ def test_to_matrix(filename):
     idx = 0
     for i in range(260):
         data = []
-        for j in range(18):
-            for w in traindata[18*i+j][2:]:
-                if w == "NR":
-                    data.append(0.0)
-                else:
-                    data.append(w)
-        data.append(1.0)
+        data+=(traindata[18*i+5][-2:])
+        data+=(traindata[18*i+7][-2:])
+        data+=(traindata[18*i+8][2:])
+        data+=(traindata[18*i+9][2:])
+        for j in traindata[18*i+9][2:]:
+            data.append(str(float(j) ** 2))
+        for j in traindata[18*i+10][-2:]:
+            if j == "NR":
+                data.append(0.0)
+            else:
+                data.append(j)
+        data.append("1.0")
         topdata.append(data)
         idx+=1
 
@@ -148,6 +142,7 @@ def valid(Vx,Vy):
     for i,j in zip(Vx, Vy):
         x = np.array(i, dtype=float)
         res = w.dot(x)
+        res = np.absolute(res)
         sqrtsum += (res-float(j))**2
         print("id", idx, "result:", res, "ans:",j)
         idx += 1
@@ -161,6 +156,7 @@ def test():
     for i in tests:
         x = np.array(i,dtype=float)
         res = w.dot(x)
+        res = np.absolute(res)
         print("id",idx,"result:",res)
         if res<0:
             res = 0
