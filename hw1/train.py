@@ -33,12 +33,10 @@ def matrix_expansion(data):
     idx = 0
     Y = []
     for mon in range(12):
-        if mon == 8:
-            continue
         for piv in range(471):
+            if '#' in data[9][471 * mon + piv: 471 * mon + piv + 10]:
+                continue
             temp = []
-            #for term in data:
-            #    temp = temp + term[471*mon+piv : 471*mon+piv+9 ]
             temp+=data[5][471*mon+piv+7 : 471*mon+piv+9 ]
             temp+=data[7][471 * mon + piv+7: 471 * mon + piv + 9]
             temp+=data[8][471 * mon + piv: 471 * mon + piv + 9]
@@ -75,8 +73,8 @@ def train():
     #print(datalist)
     X, Y, Vx, Vy = load_data()
 
-    #w = np.zeros((len(X[0]),))
-    w = np.load('model_w.npy')
+    w = np.zeros((len(X[0]),))
+    #w = np.load('model_w.npy')
 
     succ = 0
     fail = 0
@@ -142,7 +140,7 @@ def valid(Vx,Vy):
     for i,j in zip(Vx, Vy):
         x = np.array(i, dtype=float)
         res = w.dot(x)
-        res = np.absolute(res)
+        #res = np.absolute(res)
         sqrtsum += (res-float(j))**2
         print("id", idx, "result:", res, "ans:",j)
         idx += 1
@@ -156,7 +154,7 @@ def test():
     for i in tests:
         x = np.array(i,dtype=float)
         res = w.dot(x)
-        res = np.absolute(res)
+        #res = np.absolute(res)
         print("id",idx,"result:",res)
         if res<0:
             res = 0
