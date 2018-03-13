@@ -51,23 +51,17 @@ def matrix_expansion(data):
             #NO
             #temp += data[4][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #NO2
-            #temp += data[5][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[5][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
             #NOx
             #temp += data[6][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #O3
-            temp += data[7][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
+            temp += data[7][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
             #PM10
             temp += data[8][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
             #PM2.5
-            temp += data[9][471 * mon + piv + 9 - 7: 471 * mon + piv + 9 - 5]
-            temp += data[9][471 * mon + piv + 9 - 4: 471 * mon + piv + 9 - 2]
-            temp += data[9][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
+            temp += data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
 
-            for i in data[9][471 * mon + piv + 9 - 7: 471 * mon + piv + 9 - 5]:
-                temp.append(str(float(i) ** 2))
-            for i in data[9][471 * mon + piv + 9 - 4: 471 * mon + piv + 9 - 2]:
-                temp.append(str(float(i) ** 2))
-            for i in data[9][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]:
+            for i in data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]:
                 temp.append(str(float(i) ** 2))
             #RAINFALL
             temp += data[10][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
@@ -82,9 +76,9 @@ def matrix_expansion(data):
             #WIND_DIREC
             #temp += data[15][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #WIND_SPEED
-            temp += data[16][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
+            #temp += data[16][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
             #WS_HR
-            temp += data[17][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
+            #temp += data[17][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
             temp.append("1.0")
             # temp+=data[5][471*mon+piv+9-2 : 471*mon+piv+9 ]
             # temp+=data[7][471 * mon + piv+9-2: 471 * mon + piv + 9]
@@ -254,17 +248,12 @@ def test_to_matrix(filename,pm25=False):
     if not pm25:
         for i in range(260):
             data = []
-            data += (traindata[18 * i + 7][-1:])
+            data += (traindata[18 * i + 5][-1:])
+            data += (traindata[18 * i + 7][-2:])
             data += (traindata[18 * i + 8][-2:])
-            data += (traindata[18 * i + 9][-7:-5])
-            data += (traindata[18 * i + 9][-4:-2])
-            data += (traindata[18 * i + 9][-1:])
+            data += (traindata[18 * i + 9][-9:])
 
-            for j in traindata[18*i+9][-7:-5]:
-                data.append(str(float(j) ** 2))
-            for j in traindata[18*i+9][-4:-2]:
-                data.append(str(float(j) ** 2))
-            for j in traindata[18*i+9][-1:]:
+            for j in traindata[18*i+9][-9:]:
                 data.append(str(float(j) ** 2))
 
             for j in traindata[18*i+10][-1:]:
@@ -273,8 +262,8 @@ def test_to_matrix(filename,pm25=False):
                 else:
                     data.append(j)
             data += (traindata[18 * i + 12][-1:])
-            data += (traindata[18 * i + 16][-8:-7])
-            data += (traindata[18 * i + 17][-8:-7])
+            #data += (traindata[18 * i + 16][-8:-7])
+            #data += (traindata[18 * i + 17][-8:-7])
             # data+=(traindata[18*i+5][-2:])
             # data+=(traindata[18*i+7][-2:])
             # data+=(traindata[18*i+8][-1:])
