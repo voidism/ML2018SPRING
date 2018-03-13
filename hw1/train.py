@@ -51,20 +51,20 @@ def matrix_expansion(data):
             #NO
             #temp += data[4][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #NO2
-            temp += data[5][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
+            temp += data[5][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
             #NOx
             #temp += data[6][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #O3
             temp += data[7][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
             #PM10
-            temp += data[8][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
+            temp += data[8][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #PM2.5
             temp += data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
 
             for i in data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]:
                 temp.append(str(float(i) ** 2))
             #RAINFALL
-            temp += data[10][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
+            temp += data[10][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
             #RH
             #temp += data[11][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
             #SO2
@@ -248,15 +248,15 @@ def test_to_matrix(filename,pm25=False):
     if not pm25:
         for i in range(260):
             data = []
-            data += (traindata[18 * i + 5][-1:])
+            data += (traindata[18 * i + 5][-2:])
             data += (traindata[18 * i + 7][-2:])
-            data += (traindata[18 * i + 8][-2:])
+            data += (traindata[18 * i + 8][-9:])
             data += (traindata[18 * i + 9][-9:])
 
             for j in traindata[18*i+9][-9:]:
                 data.append(str(float(j) ** 2))
 
-            for j in traindata[18*i+10][-1:]:
+            for j in traindata[18*i+10][-2:]:
                 if j == "NR":
                     data.append(0.0)
                 else:
