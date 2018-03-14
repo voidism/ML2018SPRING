@@ -7,7 +7,12 @@ from math import log, floor
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import time
+import pandas as pd
 
+
+global feature_dict
+feature_dict = [0, 0,0,0,0,2, 0,2,9,9,2,
+                  0,2,0,0,0, 0,0,9]
 
 def csv_to_matrix(filename):
     trainfile = open(filename)
@@ -32,53 +37,55 @@ def csv_to_matrix(filename):
     return data
 
 def matrix_expansion(data):
+    global feature_dict
     collection = []
     idx = 0
     Y = []
+    f = feature_dict
     for mon in range(12):
         for piv in range(471):
             if '#' in data[9][471 * mon + piv: 471 * mon + piv + 10]:
                 continue
             temp = []
             #AMB_TEMP
-            #temp += data[0][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[0][471 * mon + piv + 9 - f[0]: 471 * mon + piv + 9]
             #CH4
-            #temp += data[1][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[1][471 * mon + piv + 9 - f[1]: 471 * mon + piv + 9]
             #CO
-            #temp += data[2][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[2][471 * mon + piv + 9 - f[2]: 471 * mon + piv + 9]
             #NMHC
-            #temp += data[3][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[3][471 * mon + piv + 9 - f[3]: 471 * mon + piv + 9]
             #NO
-            #temp += data[4][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[4][471 * mon + piv + 9 - f[4]: 471 * mon + piv + 9]
             #NO2
-            temp += data[5][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
+            temp += data[5][471 * mon + piv + 9 - f[5]: 471 * mon + piv + 9]
             #NOx
-            #temp += data[6][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[6][471 * mon + piv + 9 - f[6]: 471 * mon + piv + 9]
             #O3
-            temp += data[7][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
+            temp += data[7][471 * mon + piv + 9 - f[7]: 471 * mon + piv + 9]
             #PM10
-            temp += data[8][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[8][471 * mon + piv + 9 - f[8]: 471 * mon + piv + 9]
             #PM2.5
-            temp += data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[9][471 * mon + piv + 9 - f[9]: 471 * mon + piv + 9]
 
-            for i in data[9][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]:
+            for i in data[9][471 * mon + piv + 9 - f[18]: 471 * mon + piv + 9]:
                 temp.append(str(float(i) ** 2))
             #RAINFALL
-            temp += data[10][471 * mon + piv + 9 - 2: 471 * mon + piv + 9]
+            temp += data[10][471 * mon + piv + 9 - f[10]: 471 * mon + piv + 9]
             #RH
-            #temp += data[11][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[11][471 * mon + piv + 9 - f[11]: 471 * mon + piv + 9]
             #SO2
-            temp += data[12][471 * mon + piv + 9 - 1: 471 * mon + piv + 9]
+            temp += data[12][471 * mon + piv + 9 - f[12]: 471 * mon + piv + 9]
             #THC
-            #temp += data[13][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[13][471 * mon + piv + 9 - f[13]: 471 * mon + piv + 9]
             #WD_HR
-            #temp += data[14][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[14][471 * mon + piv + 9 - f[14]: 471 * mon + piv + 9]
             #WIND_DIREC
-            #temp += data[15][471 * mon + piv + 9 - 9: 471 * mon + piv + 9]
+            temp += data[15][471 * mon + piv + 9 - f[15]: 471 * mon + piv + 9]
             #WIND_SPEED
-            #temp += data[16][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
+            temp += data[16][471 * mon + piv + 9 - f[16]: 471 * mon + piv + 9 - 7]
             #WS_HR
-            #temp += data[17][471 * mon + piv + 9 - 8: 471 * mon + piv + 9 - 7]
+            temp += data[17][471 * mon + piv + 9 - f[17]: 471 * mon + piv + 9 - 7]
             temp.append("1.0")
             # temp+=data[5][471*mon+piv+9-2 : 471*mon+piv+9 ]
             # temp+=data[7][471 * mon + piv+9-2: 471 * mon + piv + 9]
@@ -240,30 +247,130 @@ def train(rand=True,split=0,block=0,whole=False,pm25=False,lamb = 1000):
     print("===valid===")
     return valid(Vx,Vy)
 
+
+
+def seek_zero(filename):
+    f = open(filename)
+    r =csv.reader(f)
+    l = list(r)
+    n = []
+    for i in l:
+        if i[1] == 'RAINFALL':
+            continue
+        else:
+            for j in i[2:]:
+                if float(j)<=0:
+                    n.append(i)
+                    break
+    ff = open('zero_data.csv','w')
+    s = csv.writer(ff, delimiter=',', lineterminator='\n')
+    for k in n:
+        s.writerow(k)
+    ff.close()
+
+
+def preprocess(filename):
+    f = open(filename)
+    r =csv.reader(f)
+    l = list(r)
+    new = []
+    for i in l:
+        if i[1] == 'RAINFALL':
+            temprow = []
+            for j in i[2:]:
+                if j == "NR":
+                    temprow.append(0.0)
+                else:
+                    temprow.append(float(j))
+            new.append(np.array(temprow))
+        else:
+            temprow = np.array(i[2:],dtype = float)
+            tf = temprow<=0
+            if True in tf:
+                if False not in tf:
+                    print(l.index(i),temprow)
+                else:
+                    #print(l.index(i), temprow)
+                    if temprow[-2]==11 and temprow[-3]==8 and temprow[-4] == 5:
+                        temprow[-1] = 14
+                    if temprow[-2]==24 and temprow[-3]==31 and temprow[-4] == 40:
+                        temprow[-1] = 22
+                    if temprow[-1]==0.3 and temprow[-2]==0 and temprow[-3] == 11:
+                        pass
+                    if temprow[0]==45 and temprow[1]==77 and temprow[2] == 83:
+                        temprow[-2]=78
+                        temprow[-3]=95
+                    else:
+                        temprow = np.where(temprow<-1, -temprow, temprow)
+                        temprow = np.where(((temprow>=-1)&(temprow<=0)),np.nan,temprow)
+                        s = pd.Series(temprow)
+                        s = s.interpolate()
+                        temprow = np.array(s)
+
+                        if True in np.isnan(temprow):
+                            idx = np.argmax(np.isnan(temprow)==False)
+                            temprow = np.where(np.isnan(temprow)==True, temprow[idx], temprow)
+                        #print(l.index(i), temprow)
+            new.append(temprow)
+
+    topic = ['AMB_TEMP', 'CH4', 'CO', 'NMHC', 'NO', 'NO2', 'NOx', 'O3', 'PM10',
+             'PM2.5', 'RAINFALL', 'RH', 'SO2', 'THC', 'WD_HR', 'WIND_DIREC',
+             'WIND_SPEED', 'WS_HR']
+    filename = "pre_test.csv"
+    text = open(filename, "w")
+    s = csv.writer(text, delimiter=',', lineterminator='\n')
+    for i in range(len(new)):
+        dummy = np.where(new[i] == np.round(new[i]), new[i].astype(int).astype(str), new[i].astype(str))
+        dummy = np.where(dummy == '0', 'NR', dummy)
+        s.writerow(["id_"+str(i//18),topic[i%18]]+list(dummy))
+    text.close()
+    return new
+
+def see():
+    f1 = open('test.csv')
+    f2 = open('pre_test.csv')
+    r1 = csv.reader(f1)
+    r2 = csv.reader(f2)
+    l1 = list(r1)
+    l2 = list(r2)
+    for i, j in zip(l1, l2):
+        if i != j:
+            print(i, j)
+
+
 def test_to_matrix(filename,pm25=False):
-    trainfile = open(filename)
-    traindata = list(csv.reader(trainfile))
+    global feature_dict
+    f = feature_dict
+    traindata = preprocess(filename)
     topdata = []
     idx = 0
     if not pm25:
         for i in range(260):
             data = []
-            data += (traindata[18 * i + 5][-2:])
-            data += (traindata[18 * i + 7][-2:])
-            data += (traindata[18 * i + 8][-9:])
-            data += (traindata[18 * i + 9][-9:])
+            data.append(traindata[18 * i + 0][9-f[0]:])
+            data.append(traindata[18 * i + 1][9-f[1]:])
+            data.append(traindata[18 * i + 2][9-f[2]:])
+            data.append(traindata[18 * i + 3][9-f[3]:])
+            data.append(traindata[18 * i + 4][9-f[4]:])
+            data.append(traindata[18 * i + 5][9-f[5]:])
+            data.append(traindata[18 * i + 6][9-f[6]:])
+            data.append(traindata[18 * i + 7][9-f[7]:])
+            data.append(traindata[18 * i + 8][9-f[8]:])
+            data.append(traindata[18 * i + 9][9-f[9]:])
 
-            for j in traindata[18*i+9][-9:]:
-                data.append(str(float(j) ** 2))
+            #for j in traindata[18*i+9][9-f[9]:]:
+                #data.append(str(float(j) ** 2))
+            data.append((traindata[18 * i + 9][9 - f[9]:])**2)
 
-            for j in traindata[18*i+10][-2:]:
-                if j == "NR":
-                    data.append(0.0)
-                else:
-                    data.append(j)
-            data += (traindata[18 * i + 12][-1:])
-            #data += (traindata[18 * i + 16][-8:-7])
-            #data += (traindata[18 * i + 17][-8:-7])
+            data.append(traindata[18 * i + 10][9-f[10]:])
+
+            data.append(traindata[18 * i + 11][9-f[11]:])
+            data.append(traindata[18 * i + 12][9-f[12]:])
+            data.append(traindata[18 * i + 13][9-f[13]:])
+            data.append(traindata[18 * i + 14][9-f[14]:])
+            data.append(traindata[18 * i + 15][9-f[15]:])
+            data.append(traindata[18 * i + 16][9-f[16]:])
+            data.append(traindata[18 * i + 17][9-f[17]:])
             # data+=(traindata[18*i+5][-2:])
             # data+=(traindata[18*i+7][-2:])
             # data+=(traindata[18*i+8][-1:])
@@ -272,7 +379,8 @@ def test_to_matrix(filename,pm25=False):
             # data+=(traindata[18*i+9][-9:])
             # for j in traindata[18*i+9][-3:]:
             #     data.append(str(float(j) ** 2))
-            data.append("1.0")
+            data.append(np.array([1.0]))
+            data = np.concatenate(data)
             topdata.append(data)
             idx+=1
     elif pm25:
@@ -284,7 +392,6 @@ def test_to_matrix(filename,pm25=False):
             data.append("1.0")
             topdata.append(data)
             idx += 1
-
     return topdata
 
 def valid(Vx,Vy):
@@ -300,7 +407,7 @@ def valid(Vx,Vy):
         sqrtsum += (res-float(j))**2
         nres = np.round(res)
         roundsum += (nres - float(j)) ** 2
-        print("id", idx, "result:", round(res,1), "ans:",j, "dist:", res-float(j))
+        #print("id", idx, "result:", round(res,1), "ans:",j, "dist:", res-float(j))
         idx += 1
     print("score:",np.sqrt(sqrtsum/idx))
     #print("round score:", np.sqrt(roundsum / idx))
@@ -332,7 +439,8 @@ def trick():
 
 def test(pm25=False):
     w = np.load('model_w.npy')
-    tests = test_to_matrix("test.csv",pm25)
+    tests = test_to_matrix("raw_test.csv",pm25)
+    #print(tests)
     idx = 0
     ans = []
     for i in tests:
