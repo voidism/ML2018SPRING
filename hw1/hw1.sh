@@ -1,2 +1,2 @@
 #!/bin/bash
-python train.py $1 $2 --normal
+python hw1.py $1 $2 --normal
