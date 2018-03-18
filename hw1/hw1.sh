@@ -1,2 +1,2 @@
 #!/bin/bash
-python hw1.py $1 $2 --normal
+python3 hw1.py $1 $2 --normal

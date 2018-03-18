@@ -8,11 +8,32 @@ from numpy.linalg import inv
 import matplotlib.pyplot as plt
 import time
 import pandas as pd
+import sys
 
 
 global feature_dict
-feature_dict = [0, 0,0,0,0,2, 0,2,9,9,2,
-                  0,2,0,0,0, 0,0,9]
+# best -->
+feature_dict = [0,#AMB_TEMP
+                0,#CH4
+                0,#CO
+                0,#NMHC
+                0,#NO
+                2,#NO2
+                0,#NOx
+                2,#O3
+                9,#PM10
+                9,#PM2.5
+                2,#RAINFALL
+                0,#RH
+                2,#SO2
+                0,#THC
+                0,#WD_HR
+                0,#WIND_DIREC
+                0,#WIND_SPEED
+                0,#WS_HR
+                9]#PM2.5^2
+# feature_dict = [0, 0,0,0,0,0, 0,5,7,9,0,
+#                    0,3,0,0,0, 0,0,4]
 
 def csv_to_matrix(filename):
     trainfile = open(filename)
@@ -83,9 +104,9 @@ def matrix_expansion(data):
             #WIND_DIREC
             temp += data[15][471 * mon + piv + 9 - f[15]: 471 * mon + piv + 9]
             #WIND_SPEED
-            temp += data[16][471 * mon + piv + 9 - f[16]: 471 * mon + piv + 9 - 7]
+            temp += data[16][471 * mon + piv + 9 - f[16]: 471 * mon + piv + 9]
             #WS_HR
-            temp += data[17][471 * mon + piv + 9 - f[17]: 471 * mon + piv + 9 - 7]
+            temp += data[17][471 * mon + piv + 9 - f[17]: 471 * mon + piv + 9]
             temp.append("1.0")
             # temp+=data[5][471*mon+piv+9-2 : 471*mon+piv+9 ]
             # temp+=data[7][471 * mon + piv+9-2: 471 * mon + piv + 9]
@@ -196,7 +217,7 @@ def best(rand=True,split=0,block=0,whole=False,pm25=False):
         x, y, Vx, Vy = load_pm25_only(rand, split, block, whole)
 
     w = np.zeros(len(x[0]))
-    w = np.matmul(np.matmul(inv(np.matmul(x.T, x)), x.T), y)
+    w = np.matmul(np.matmul(inv(np.matmul(x.T, x) + 1078 * np.identity(len(x[0]))), x.T), y)
     np.save('model_w.npy', w)
     test(pm25)
 
@@ -288,16 +309,17 @@ def preprocess(filename):
             tf = temprow<=0
             if True in tf:
                 if False not in tf:
-                    print(l.index(i),temprow)
+                    pass
+                    #print(l.index(i),temprow)
                 else:
                     #print(l.index(i), temprow)
                     if temprow[-2]==11 and temprow[-3]==8 and temprow[-4] == 5:
                         temprow[-1] = 14
-                    if temprow[-2]==24 and temprow[-3]==31 and temprow[-4] == 40:
+                    elif temprow[-2]==24 and temprow[-3]==31 and temprow[-4] == 40:
                         temprow[-1] = 22
-                    if temprow[-1]==0.3 and temprow[-2]==0 and temprow[-3] == 11:
+                    elif temprow[-1]==0.3 and temprow[-2]==0 and temprow[-3] == 11:
                         pass
-                    if temprow[0]==45 and temprow[1]==77 and temprow[2] == 83:
+                    elif temprow[0]==45 and temprow[1]==77 and temprow[2] == 83:
                         temprow[-2]=78
                         temprow[-3]=95
                     else:
@@ -360,7 +382,7 @@ def test_to_matrix(filename,pm25=False):
 
             #for j in traindata[18*i+9][9-f[9]:]:
                 #data.append(str(float(j) ** 2))
-            data.append((traindata[18 * i + 9][9 - f[9]:])**2)
+            data.append((traindata[18 * i + 9][9 - f[18]:])**2)
 
             data.append(traindata[18 * i + 10][9-f[10]:])
 
@@ -447,14 +469,46 @@ def test(pm25=False):
         x = np.array(i,dtype=float)
         res = w.dot(x)
         #res = np.absolute(res)
-        # if res < 0:
-        #     res = 0.0
+        if res < 0:
+            res = 0.0
         nres = np.round(res)
         print("id",idx,"result:",res, "round:", nres)
         ans.append(["id_"+str(idx),res])
         idx+=1
 
     filename = "ans.csv"
+    text = open(filename, "w")
+    s = csv.writer(text, delimiter=',', lineterminator='\n')
+    s.writerow(["id", "value"])
+    for i in range(len(ans)):
+        s.writerow(ans[i])
+    text.close()
+
+
+if __name__ == '__main__':
+    if sys.argv[3]=="--best":
+        feature_dict = [0, 0, 0, 0, 0, 2, 0, 2, 9, 9, 2,
+                        0, 2, 0, 0, 0, 0, 0, 9]
+        w = np.load('model_w_HW1BEST.npy')
+    else:
+        feature_dict = [0, 0, 0, 0, 0, 2, 0, 2, 9, 9, 2,
+                        0, 2, 0, 0, 0, 0, 0, 9]
+        w = np.load('model_w_HW1.npy')
+    tests = test_to_matrix(sys.argv[1])
+    idx = 0
+    ans = []
+    for i in tests:
+        x = np.array(i,dtype=float)
+        res = w.dot(x)
+        #res = np.absolute(res)
+        if res < 0:
+            res = 0.0
+        nres = np.round(res)
+        #print("id",idx,"result:",res, "round:", nres)
+        ans.append(["id_"+str(idx),res])
+        idx+=1
+
+    filename = sys.argv[2]
     text = open(filename, "w")
     s = csv.writer(text, delimiter=',', lineterminator='\n')
     s.writerow(["id", "value"])
