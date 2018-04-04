@@ -4,7 +4,7 @@ import pickle
 import sys
 
 def skfit(dropnum=0):
-    X, Y, Vx, Vy, T = load_data(v_size=0.9,rand=0,dropnum=dropnum)
+    X, Y, Vx, Vy, T = load_data(v_size=1,rand=False,dropnum=dropnum,bias=0)
     classifier = LogisticRegression(penalty='l1')
     classifier.fit(X, Y)
     print(classifier.score(Vx,Vy))
@@ -56,10 +56,6 @@ def validSK(ans,Vy):
                 FP +=1
             else:
                 TN+=1
-        # sqrtsum += (res - float(j)) ** 2
-        # nres = np.round(res)
-        # roundsum += (nres - float(j)) ** 2
-        # print("id", idx, "result:", round(res,1), "ans:",j, "dist:", res-float(j))
         idx += 1
     print("score:", (succ / idx), "F1-measure:", (2*TP/(2*TP+FP+FN)))
     return (succ / idx)

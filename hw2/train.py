@@ -20,7 +20,7 @@ def normalize(X_all, X_test, dropnum):
              41, 4, 36, 56, 3, 32, 8, 67, 18, 69, 37, 22, 62, 76, 79, 49, 50, 68, 78, 43, 80, 0, 10]
     # Feature normalization with train and test X
     X_train_test = np.concatenate((X_all, X_test))
-    for i in [0,10,43,78,80]:
+    for i in [0,10,78,79,80]:
 
         mu = (sum(X_train_test[:,i]) / X_train_test.shape[0])
         sigma = np.std(X_train_test[:,i], axis=0)
@@ -35,9 +35,15 @@ def normalize(X_all, X_test, dropnum):
         X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**4).reshape((X_train_test.shape[0],1))),axis=1)
         X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**5).reshape((X_train_test.shape[0],1))),axis=1)
         X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**6).reshape((X_train_test.shape[0],1))),axis=1)
-        # np.concatenate((X_train_test,(np.log(X_train_test[:,i]+1)).reshape((X_train_test.shape[0],1))),axis=1)
-    X_train_test = np.delete(X_train_test,index[:dropnum],1)
-    # X_train_test = np.delete(X_train_test,10,1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**7).reshape((X_train_test.shape[0],1))),axis=1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**8).reshape((X_train_test.shape[0],1))),axis=1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**9).reshape((X_train_test.shape[0],1))),axis=1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**10).reshape((X_train_test.shape[0],1))),axis=1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**11).reshape((X_train_test.shape[0],1))),axis=1)
+        # X_train_test = np.concatenate((X_train_test,(X_train_test[:,i]**12).reshape((X_train_test.shape[0],1))),axis=1)
+        np.concatenate((X_train_test,(np.log(X_train_test[:,i]+1)).reshape((X_train_test.shape[0],1))),axis=1)
+    # X_train_test = np.delete(X_train_test,index[:dropnum],1)
+    # X_train_test = np.delete(X_train_test,dropnum,1)
     # X_train_test = np.delete(X_train_test,np.s_[27:43],1)
     # X_train_test = np.delete(X_train_test,7,1)
     # for col in range(X_train_test.shape[1]):
@@ -272,7 +278,7 @@ def validDis(Vx,Vy):
     return (succ / idx)
 
 
-def Dis(rand=False,split=0,block=0,v_size=0.9,lamb = 0.0001,lr = 0.001,bs = 5000,dropnum=0, selected=False,epoch=4000):
+def Dis(rand=False,split=0,block=0,v_size=0.9,lamb = 0.0001,lr = 0.001,bs = 5000,dropnum=0, selected=False,epoch=4000,reger='L1',opt='adam'):
     X, Y, Vx, Vy, T = load_data(v_size, rand, split, block, selected=selected,dropnum=dropnum)
     w = np.zeros((X.shape[1],))
     #w = np.load('model_w.npy')
@@ -315,18 +321,30 @@ def Dis(rand=False,split=0,block=0,v_size=0.9,lamb = 0.0001,lr = 0.001,bs = 5000
             total += len(x)
             w_grad = -x.transpose().dot(y - res)
             #print(w_grad.shape)
-            # w_gras += w_grad**2
             # reg = w[:]
             # reg[-1] = 0
             # reg = reg*lamb/len(reg)
-            t += 1
-            m = b1*m + (1-b1)*w_grad
-            v = b2*v + (1-b2)*(w_grad**2)
-            m_hat = m/(1-b1**t)
-            v_hat = v/(1-b2**t)
-            # w = (1-w_lr*lamb)*w - w_lr * ((w_grad)/ np.sqrt(w_gras))
-            w = (1-w_lr*lamb)*w - w_lr * ((m_hat)/ (np.sqrt(v_hat)+eps))
-
+            # w = (1-w_lr*lamb)*w - w_lr * ((w_grad)/ np.sqrt(w_gras))      #Adagrad w/ L2 regularization
+            if opt=='adam':
+                t += 1
+                m = b1*m + (1-b1)*w_grad
+                v = b2*v + (1-b2)*(w_grad**2)
+                m_hat = m/(1-b1**t)
+                v_hat = v/(1-b2**t)
+                if reger=='NO' or reger == 'no':
+                    w = w - w_lr * ((m_hat)/ (np.sqrt(v_hat)+eps))  #Adam without regularization
+                elif reger == 'L2' or reger == 'l2':
+                    w = (1-w_lr*lamb)*w - w_lr * ((m_hat)/ (np.sqrt(v_hat)+eps))  #Adam w/ L2 regularization
+                elif reger == 'L1' or reger == 'l1':
+                    w = w - w_lr * ((m_hat)/ (np.sqrt(v_hat)+eps)+lamb*np.sign(w))  #Adam w/ L1 regularization
+            elif opt=='adagrad':
+                w_gras += w_grad**2
+                if reger=='NO' or reger == 'no':
+                    w = w - w_lr * ((w_grad) / np.sqrt(w_gras))  # Adagrad without regularization
+                elif reger == 'L2' or reger == 'l2':
+                    w = (1 - w_lr * lamb) * w - w_lr * ((w_grad) / np.sqrt(w_gras))  # Adagrad w/ L2 regularization
+                elif reger == 'L1' or reger == 'l1':
+                    w = w - w_lr * ((w_grad) / np.sqrt(w_gras)+lamb*np.sign(w))  #Adagrad w/ L1 regularization
 
             print(
             chr(13) + "|" + "=" * (50 * j // iteration
@@ -348,6 +366,14 @@ def Dis(rand=False,split=0,block=0,v_size=0.9,lamb = 0.0001,lr = 0.001,bs = 5000
             vd = validDis(Vx, Vy)
             vseq.append(vd)
             jseq.append(j)
+        elif j%50==1:
+
+            np.save('model_w.npy',w)
+            td = validDis(X, Y)
+            tseq.append(td)
+            vd = validDis(Vx, Vy)
+            vseq.append(vd)
+            jseq.append(j)
     print("\n", end="")
     np.save('model_w.npy', w)
     print("Train data ",end="")
@@ -357,7 +383,7 @@ def Dis(rand=False,split=0,block=0,v_size=0.9,lamb = 0.0001,lr = 0.001,bs = 5000
     vd = validDis(Vx, Vy)
     vseq.append(vd)
     jseq.append(j)
-    # return jseq, tseq, vseq
+    np.save('Distrace.npy',[jseq, tseq, vseq])
     testDis(dropnum=dropnum)
     return td, vd
 
@@ -458,7 +484,7 @@ def dropout():
     plt.ylabel('accuracy')
     plt.xlabel('dropout num')
     plt.title('Compare accuracy between diff dropout num')
-    plt.savefig('Compare accuracy between diff dropout num.png')
+    plt.savefig('Compare accuracy between diff dropout num2.png')
     plt.clf()
 
 def search_index(keyword):
@@ -474,6 +500,12 @@ def search_item(index):
     X = list(csv.reader(train_X))
     title= X[0]
     print(title[int(index)])
+
+
+def cov():
+    train_X = open('train_X')
+    X = list(csv.reader(train_X))
+    title= X[0]
 
 def exp():
     global threshold
@@ -503,19 +535,36 @@ def exp_norm():
         T[j], V[j] = Dis(split=5, block=j + 1,epoch=2000)
     t, v = T.mean(), V.mean()
     print("Dis with norm: train:",t,"valid:",v)
-    # def ploto():
-    #     plt.plot(
-    #         acc_result.T[0][0],
-    #         acc_result.T[1][0],
-    #         acc_result.T[0][0],
-    #         acc_result.T[2][0]
-    #     )
-    #     # for i,j in zip(acc_result.T[0][0],acc_result.T[1][0]):
-    #     #     plt.text(i,j,str(j))
-    #     # for i,j in zip(acc_result.T[0][0],acc_result.T[2][0]):
-    #     #     plt.text(i, j, str(j))
-    #     plt.legend(['Training', 'Validation'])
-    #     plt.ylabel('ave cost')
-    #     plt.xlabel('lambda')
-    #     plt.title('Compare between diff regularization')
-    #     plt.savefig('reg_MT500-1500.png')
+import shutil
+def exp_reg(opt='adam',lr=0.001):
+    Dis(rand=False,v_size=0.9,epoch=4000, reger="no",opt=opt,lr=lr)
+    testDis()
+    # shutil.move('ans.csv','ansDis_no_reger.csv')
+    shutil.move('Distrace.npy','Distrace_no_reg.npy')
+    trace = np.load('Distrace_no_reg.npy')
+    ploto(trace[1],trace[2],trace[0],"Acc movement without regularization",'no_reger.png')
+    Dis(rand=False,v_size=0.9,epoch=4000, reger="l1",opt=opt,lr=lr)
+    testDis()
+    # shutil.move('ans.csv','ansDis_l1_reger.csv')
+    shutil.move('Distrace.npy','Distrace_l1_reg.npy')
+    trace = np.load('Distrace_l1_reg.npy')
+    ploto(trace[1],trace[2],trace[0],"Acc movement with L1 regularization",'l1_reger.png')
+    Dis(rand=False,v_size=0.9,epoch=4000, reger="l2",opt=opt,lr=lr)
+    testDis()
+    # shutil.move('ans.csv','ansDis_l2_reger.csv')
+    shutil.move('Distrace.npy','Distrace_l2_reg.npy')
+    trace = np.load('Distrace_l2_reg.npy')
+    ploto(trace[1],trace[2],trace[0],"Acc movement with L2 regularization",'l2_reger.png')
+
+def ploto(x,y,t,title,filename):
+    plt.plot(
+        t,
+        x,
+        t,
+        y
+    )
+    plt.legend(['Training', 'Validation'])
+    plt.ylabel('acc')
+    plt.xlabel('iteration')
+    plt.title(title)
+    plt.savefig(filename)
