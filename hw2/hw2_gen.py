@@ -103,7 +103,7 @@ def load_gen_model():
     return sigma,mu1,mu2, num1, num2
 
 if __name__=='__main__':
-    X, Y, Vx, Vy, T = load_data(sys.argv[1],sys.argv[2],sys.argv[3],v_size=1,rand=False,dropnum=0,bias=False)
+    _X, _Y, _Vx, _Vy, X = load_data(sys.argv[1],sys.argv[2],sys.argv[3],v_size=1,rand=False,dropnum=0,bias=False)
     sigma, mu1, mu2, num1, num2 = load_gen_model()
     idx = 0
     ans = []
