@@ -22,16 +22,61 @@ import warnings
 from keras.models import Model
 from keras import layers
 from keras.models import load_model
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img  
+from counter import counter
 
+def augment_img(X, Y, datagen, expand_size):
+    result_x = []
+    result_y = []
+    batch_size=32
+    total_img = len(X)//batch_size+int(len(X)%batch_size!=0)
+    ct = counter(epoch=total_img,title="Data Augmentation")
+    for i in range(total_img):
+        x = X[batch_size*i:batch_size*(i+1)]
+        y = Y[batch_size*i:batch_size*(i+1)]
+        iter = 0
+        for batch_x, batch_y in datagen.flow(x,y, batch_size=32):  
+            # print("batch_x",batch_x.shape)
+            # print("batch_y",batch_y.shape)
+            result_x = result_x + list(batch_x)
+            result_y = result_y + list(batch_y)
+            iter+=1
+            if iter >= expand_size:  
+                break  # otherwise the generator would loop indefinitely 
+        ct.flush(i)
+    result_x = np.array(result_x)
+    result_y = np.array(result_y)
+    # result_x = np.reshape(result_x,result_x.shape[:3])
+    return result_x, result_y
 
-def load_data(train_data_path='train.csv',test_data_path='test.csv'):
+def augmentation(x, y, expand_size=5):
+    datagen = ImageDataGenerator(  
+        rotation_range=0.2,  
+        width_shift_range=0.2,  
+        height_shift_range=0.2,  
+        shear_range=0.2,  
+        zoom_range=0.2,  
+        horizontal_flip=True,  
+        fill_mode='nearest')
+    rx, ry = augment_img(x,y,datagen, expand_size)
+    return rx, ry
+
+def load_data(train_data_path='train.csv',test_data_path='test.csv',aug=True):
     r = csv.reader(open(train_data_path))
     l = list(r)[1:]
     X_train = []
     Y_pre = []
+    idx = 0
+    ct = counter(epoch=len(l),title="Loading Training Data")
     for row in l:
         Y_pre.append(row[0])
-        X_train.append(np.reshape(np.array(row[1].split(' '),dtype=float),(48,48,1)))
+        flat_array = np.array(row[1].split(' '),dtype=float)
+        # mu = np.mean(flat_array)
+        # sigma = np.std(flat_array)
+        # flat_array = (flat_array - mu) / sigma
+        X_train.append(np.reshape(flat_array,(48,48,1)))
+        ct.flush(j=idx)
+        idx+=1
     X_train = np.array(X_train,dtype=float)
 
     # one-hot encoding
@@ -42,12 +87,32 @@ def load_data(train_data_path='train.csv',test_data_path='test.csv'):
     r = csv.reader(open(test_data_path))
     l = list(r)[1:]
     X_test = []
+    idx = 0
+    ct = counter(epoch=len(l),title="Loading Testing Data")
     for row in l:
-        X_test.append(np.reshape(np.array(row[1].split(' '),dtype=float),(48,48,1)))
+        flat_array = np.array(row[1].split(' '),dtype=float)
+        # mu = np.mean(flat_array)
+        # sigma = np.std(flat_array)
+        # flat_array = (flat_array - mu) / sigma
+        X_test.append(np.reshape(flat_array,(48,48,1)))
+        ct.flush(idx)
+        idx+=1
     X_test = np.array(X_test,dtype=float)
 
-    X_train /= 255
-    X_test /= 255
+    if not aug:
+        X_train /= 255
+        X_test /= 255
+    else:
+        X_aug, Y_aug = augmentation(X_train, Y_train)
+        X_train = np.concatenate((X_train, X_aug),axis=0)
+        Y_train = np.concatenate((Y_train, Y_aug),axis=0)
+
+        randomize = np.arange(len(X_train))
+        np.random.shuffle(randomize)
+        X_train,Y_train = (X_train[randomize], Y_train[randomize])
+
+        X_train /= 255
+        X_test /= 255
 
     return X_train, Y_train, X_test
 
@@ -101,6 +166,24 @@ def build_model(x_train):
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
+    model.add(Conv2D(64, (3, 3), padding='same'))
+    model.add(Activation('relu'))
+
+    model.add(Conv2D(64, (3, 3)))
+    model.add(Activation('relu'))
+
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    # model.add(Conv2D(64, (3, 3), padding='same'))
+    # model.add(Activation('relu'))
+
+    # model.add(Conv2D(64, (3, 3)))
+    # model.add(Activation('relu'))
+
+    # model.add(MaxPooling2D(pool_size=(2, 2)))
+    # model.add(Dropout(0.25))
+
     model.add(Flatten())
     model.add(Dense(512))
     model.add(Activation('relu'))
@@ -113,21 +196,28 @@ def build_model(x_train):
     return model
 
 def train_model(model,x_train,y_train,x_test,y_test):
-    # initiate RMSprop optimizer
+
     # Let's train the model using RMSprop
     model.compile(loss='categorical_crossentropy',
                 optimizer='adam',
                 metrics=['accuracy'])
     model.fit(x_train, y_train,
               batch_size=500,
-              epochs=100,
+              epochs=40,
               validation_data=(x_test, y_test),
               shuffle=True)
+    # model.fit_generator(datagen.flow(x_train, y_train, batch_size=50),
+    #                 steps_per_epoch=len(x_train) / 32, epochs=50,
+    #           validation_data=(x_test, y_test))
+    # model.fit_generator(datagen.flow(x_train, y_train, batch_size=100,
+    #           shuffle=True),
+    #           epochs=50,
+    #           steps_per_epoch=len(x_train) / 1000,
+    #           validation_data=(x_test, y_test))
     return model
 
-def test(filename = "ans.csv"):
+def test(test,filename = "ans.csv"):
     ans = []
-    _x, _y, test = load_data()
     model = load_model('my_model.h5')
     result = np.argmax(model.predict(test),axis=1)
     for idx in range(result.shape[0]):
@@ -141,14 +231,18 @@ def test(filename = "ans.csv"):
     text.close()
     
 if __name__=="__main__":
-    X_org, Y_org, X_test = load_data()
+    augm = "-aug" in sys.argv
+    X_org, Y_org, X_test = load_data(aug=augm)
     X_train, Y_train, X_valid, Y_valid = split_valid(X_org, Y_org)
-    if sys.argv[1]=='-init':
+    if '-init' in sys.argv:
         model = build_model(X_train)
-    elif sys.argv[1]=='-cont':
+    elif '-good' in sys.argv:
+        model = load_model('my_model_init.h5')
+    elif '-cont' in sys.argv:
         model = load_model('my_model.h5')
     else:
         print('No Arguments!')
         sys.exit()
     model = train_model(model, X_train, Y_train, X_valid, Y_valid)
     model.save('my_model.h5')
+    test(X_test)
