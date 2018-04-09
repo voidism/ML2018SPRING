@@ -24,6 +24,7 @@ from keras import layers
 from keras.models import load_model
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img  
 from counter import counter
+from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 
 def augment_img(X, Y, datagen, expand_size):
     result_x = []
@@ -166,10 +167,10 @@ def build_model(x_train):
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
-    model.add(Conv2D(256, (3, 3), padding='same'))
+    model.add(Conv2D(128, (3, 3), padding='same'))
     model.add(Activation('relu'))
 
-    model.add(Conv2D(256, (3, 3)))
+    model.add(Conv2D(128, (3, 3)))
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -187,7 +188,10 @@ def build_model(x_train):
     model.add(Flatten())
     model.add(Dense(512))
     model.add(Activation('relu'))
-    model.add(Dropout(0.5))
+    model.add(Dropout(0.333))
+    model.add(Dense(512))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.333))
 
     model.add(Dense(num_classes))
     model.add(Activation('softmax'))
@@ -201,11 +205,13 @@ def train_model(model,x_train,y_train,x_test,y_test):
     model.compile(loss='categorical_crossentropy',
                 optimizer='adam',
                 metrics=['accuracy'])
+    ''' original:
     model.fit(x_train, y_train,
               batch_size=300,
               epochs=40,
               validation_data=(x_test, y_test),
               shuffle=True)
+    '''
     # model.fit_generator(datagen.flow(x_train, y_train, batch_size=50),
     #                 steps_per_epoch=len(x_train) / 32, epochs=50,
     #           validation_data=(x_test, y_test))
@@ -214,6 +220,29 @@ def train_model(model,x_train,y_train,x_test,y_test):
     #           epochs=50,
     #           steps_per_epoch=len(x_train) / 1000,
     #           validation_data=(x_test, y_test))
+
+    LOG_DIR = '/training_logs'
+    LOG_FILE_PATH = LOG_DIR + '/checkpoint-{epoch:02d}-{val_loss:.4f}.hdf5'   # 模型Log文件以及.h5模型文件存放地址
+
+    tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
+    checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
+
+    datagen = ImageDataGenerator(  
+        rotation_range=0.2,  
+        width_shift_range=0,  
+        height_shift_range=0,  
+        shear_range=0.2,  
+        zoom_range=0.2,  
+        horizontal_flip=True,  
+        fill_mode='nearest')
+
+    datagen.fit(x_train)
+    model.fit_generator(datagen.flow(x_train,  
+                        y_train, batch_size=64),
+                      steps_per_epoch=round(len(x_train)/64),
+                    epochs=40, validation_data=(x_test, y_test),
+                    callbacks=[tensorboard, checkpoint, early_stopping])
     return model
 
 def test(test,filename = "ans.csv"):
