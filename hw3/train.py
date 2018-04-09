@@ -147,29 +147,29 @@ def build_model(x_train):
 
     model = Sequential()
 
-    model.add(Conv2D(32, (3, 3), padding='same',
+    model.add(Conv2D(64, (3, 3), padding='same',
                  input_shape=x_train.shape[1:]))
     model.add(Activation('relu'))
 
-    model.add(Conv2D(32, (3, 3)))
-    model.add(Activation('relu'))
-
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-
-    model.add(Conv2D(64, (3, 3), padding='same'))
-    model.add(Activation('relu'))
-
     model.add(Conv2D(64, (3, 3)))
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
-    model.add(Conv2D(64, (3, 3), padding='same'))
+    model.add(Conv2D(128, (3, 3), padding='same'))
     model.add(Activation('relu'))
 
-    model.add(Conv2D(64, (3, 3)))
+    model.add(Conv2D(128, (3, 3)))
+    model.add(Activation('relu'))
+
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Conv2D(256, (3, 3), padding='same'))
+    model.add(Activation('relu'))
+
+    model.add(Conv2D(256, (3, 3)))
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -202,7 +202,7 @@ def train_model(model,x_train,y_train,x_test,y_test):
                 optimizer='adam',
                 metrics=['accuracy'])
     model.fit(x_train, y_train,
-              batch_size=500,
+              batch_size=300,
               epochs=40,
               validation_data=(x_test, y_test),
               shuffle=True)
