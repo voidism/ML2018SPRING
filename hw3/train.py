@@ -144,9 +144,11 @@ def build_model(x_train):
     num_classes = 7
 
     model = Sequential()
+    model.add(BatchNormalization(input_shape=x_train.shape[1:]))
 
-    model.add(Conv2D(64, (3, 3), padding='same',
-                 input_shape=x_train.shape[1:]))
+    model.add(Conv2D(64, (3, 3), padding='same'))#,
+                 #input_shape=x_train.shape[1:]))
+                 
     model.add(BatchNormalization())
     model.add(Activation('relu'))
 
@@ -235,9 +237,10 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
             fill_mode='nearest')
 
         datagen.fit(x_train)
+        batch_size = 256
         model.fit_generator(datagen.flow(x_train,  
-                            y_train, batch_size=100),
-                        steps_per_epoch=round(len(x_train)/64),
+                            y_train, batch_size=batch_size),
+                        steps_per_epoch=round(len(x_train)/batch_size),
                         epochs=40, validation_data=(x_test, y_test),
                         callbacks=[tensorboard, checkpoint, early_stopping])
     else:
