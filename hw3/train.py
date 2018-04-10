@@ -53,8 +53,8 @@ def augment_img(X, Y, datagen, expand_size):
 def augmentation(x, y, expand_size=5):
     datagen = ImageDataGenerator(  
         rotation_range=0.2,  
-        width_shift_range=0.2,  
-        height_shift_range=0.2,  
+        width_shift_range=0,  
+        height_shift_range=0,  
         shear_range=0.2,  
         zoom_range=0.2,  
         horizontal_flip=True,  
@@ -199,7 +199,7 @@ def build_model(x_train):
 
     return model
 
-def train_model(model,x_train,y_train,x_test,y_test):
+def train_model(model,x_train,y_train,x_test,y_test,gen=False):
 
     # Let's train the model using RMSprop
     model.compile(loss='categorical_crossentropy',
@@ -221,28 +221,37 @@ def train_model(model,x_train,y_train,x_test,y_test):
     #           steps_per_epoch=len(x_train) / 1000,
     #           validation_data=(x_test, y_test))
 
-    LOG_DIR = '/training_logs'
+    LOG_DIR = './training_logs'
     LOG_FILE_PATH = LOG_DIR + '/checkpoint-{epoch:02d}-{val_loss:.4f}.hdf5'   # 模型Log文件以及.h5模型文件存放地址
 
     tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
     checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
 
-    datagen = ImageDataGenerator(  
-        rotation_range=0.2,  
-        width_shift_range=0,  
-        height_shift_range=0,  
-        shear_range=0.2,  
-        zoom_range=0.2,  
-        horizontal_flip=True,  
-        fill_mode='nearest')
+    if gen:
+        datagen = ImageDataGenerator(  
+            rotation_range=0.2,  
+            width_shift_range=0.2,  
+            height_shift_range=0.2,  
+            shear_range=0.2,  
+            zoom_range=0.2,  
+            horizontal_flip=True,  
+            fill_mode='nearest')
 
-    datagen.fit(x_train)
-    model.fit_generator(datagen.flow(x_train,  
-                        y_train, batch_size=64),
-                      steps_per_epoch=round(len(x_train)/64),
-                    epochs=40, validation_data=(x_test, y_test),
-                    callbacks=[tensorboard, checkpoint, early_stopping])
+        datagen.fit(x_train)
+        model.fit_generator(datagen.flow(x_train,  
+                            y_train, batch_size=100),
+                        steps_per_epoch=round(len(x_train)/64),
+                        epochs=40, validation_data=(x_test, y_test),
+                        callbacks=[tensorboard, checkpoint, early_stopping])
+    else:
+        model.fit(x_train, y_train,
+                batch_size=300,
+                epochs=40,
+                validation_data=(x_test, y_test),
+                shuffle=True,
+                callbacks=[tensorboard, checkpoint, early_stopping])
+
     return model
 
 def test(test,filename = "ans.csv"):
