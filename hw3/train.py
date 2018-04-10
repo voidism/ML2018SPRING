@@ -50,7 +50,7 @@ def augment_img(X, Y, datagen, expand_size):
     # result_x = np.reshape(result_x,result_x.shape[:3])
     return result_x, result_y
 
-def augmentation(x, y, expand_size=5):
+def augmentation(X_train, Y_train, expand_size=5):
     datagen = ImageDataGenerator(  
         rotation_range=0.2,  
         width_shift_range=0,  
@@ -59,10 +59,18 @@ def augmentation(x, y, expand_size=5):
         zoom_range=0.2,  
         horizontal_flip=True,  
         fill_mode='nearest')
-    rx, ry = augment_img(x,y,datagen, expand_size)
-    return rx, ry
 
-def load_data(train_data_path='train.csv',test_data_path='test.csv',aug=True):
+    X_aug, Y_aug  = augment_img(X_train,Y_train,datagen, expand_size)
+    X_train = np.concatenate((X_train, X_aug),axis=0)
+    Y_train = np.concatenate((Y_train, Y_aug),axis=0)
+
+    randomize = np.arange(len(X_train))
+    np.random.shuffle(randomize)
+    X_train,Y_train = (X_train[randomize], Y_train[randomize])
+
+    return X_train, Y_train
+
+def load_data(train_data_path='train.csv',test_data_path='test.csv'):
     r = csv.reader(open(train_data_path))
     l = list(r)[1:]
     X_train = []
@@ -100,22 +108,11 @@ def load_data(train_data_path='train.csv',test_data_path='test.csv',aug=True):
         idx+=1
     X_test = np.array(X_test,dtype=float)
 
-    if not aug:
-        X_train /= 255
-        X_test /= 255
-    else:
-        X_aug, Y_aug = augmentation(X_train, Y_train)
-        X_train = np.concatenate((X_train, X_aug),axis=0)
-        Y_train = np.concatenate((Y_train, Y_aug),axis=0)
-
-        randomize = np.arange(len(X_train))
-        np.random.shuffle(randomize)
-        X_train,Y_train = (X_train[randomize], Y_train[randomize])
-
-        X_train /= 255
-        X_test /= 255
-
     return X_train, Y_train, X_test
+
+def normalization(X_train):
+    X_train /= 255
+    return X_train
 
 def split_valid(X,Y,v_size=0.9,rand=False,split=0,block=0):
     if rand:
@@ -150,27 +147,33 @@ def build_model(x_train):
 
     model.add(Conv2D(64, (3, 3), padding='same',
                  input_shape=x_train.shape[1:]))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(64, (3, 3)))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
     model.add(Conv2D(128, (3, 3), padding='same'))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(128, (3, 3)))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
     model.add(Conv2D(128, (3, 3), padding='same'))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(128, (3, 3)))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -187,9 +190,11 @@ def build_model(x_train):
 
     model.add(Flatten())
     model.add(Dense(512))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(Dropout(0.333))
     model.add(Dense(512))
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
     model.add(Dropout(0.333))
 
@@ -254,9 +259,13 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
 
     return model
 
-def test(test,filename = "ans.csv"):
+def test(test,filename = "ans.csv",model_name='my_model.h5',checkname=""):
     ans = []
-    model = load_model('my_model.h5')
+    model = None
+    if checkname=="":
+        model = load_model('my_model.h5')
+    else:
+        model = load_model('training_logs/checkpoint-'+checkname+'.hdf5')
     result = np.argmax(model.predict(test),axis=1)
     for idx in range(result.shape[0]):
         ans.append([idx,result[idx]])
@@ -269,9 +278,16 @@ def test(test,filename = "ans.csv"):
     text.close()
     
 if __name__=="__main__":
-    augm = "-aug" in sys.argv
-    X_org, Y_org, X_test = load_data(aug=augm)
-    X_train, Y_train, X_valid, Y_valid = split_valid(X_org, Y_org)
+    X_train, Y_train, X_test = load_data()
+    X_train, Y_train, X_valid, Y_valid = split_valid(X_train, Y_train)
+
+    if "-aug" in sys.argv:
+        X_train, Y_train = augmentation(X_train, Y_train)
+    
+    X_train = normalization(X_train)
+    X_test = normalization(X_test)
+    X_valid = normalization(X_valid)
+
     if '-init' in sys.argv:
         model = build_model(X_train)
     elif '-good' in sys.argv:
