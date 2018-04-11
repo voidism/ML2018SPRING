@@ -110,9 +110,31 @@ def load_data(train_data_path='train.csv',test_data_path='test.csv'):
 
     return X_train, Y_train, X_test
 
-def normalization(X_train):
+def normalization(X_train, X_valid, X_test):
     X_train /= 255
-    return X_train
+    X_test /= 255
+    X_valid /= 255
+
+    # X_all = np.concatenate((X_train, X_test, X_valid))
+
+    # flatten_array = np.zeros((X_all.shape[0],48*48))
+    # for i in range(X_all.shape[0]):
+    #     flatten_array[i,:] = X_all[i].flatten()
+    
+    # ct = counter(epoch=flatten_array.shape[1],title="Normalizing Data")
+    # for i in range(flatten_array.shape[1]):
+    #     mu = (sum(flatten_array[:,i]) / flatten_array.shape[0])
+    #     sigma = np.std(flatten_array[:,i], axis=0)
+    #     flatten_array[:,i] = (flatten_array[:,i] - mu) / sigma
+    #     ct.flush(i)
+
+    # for i in range(X_all.shape[0]):
+    #     X_all[i] = np.reshape(flatten_array[i,:],(48,48,1))
+
+    # X_train = X_all[:X_train.shape[0]]
+    # X_valid = X_all[X_train.shape[0]:X_train.shape[0]+X_valid.shape[0]]
+    # X_test = X_all[-X_test.shape[0]:]
+    return X_train, X_valid, X_test
 
 def split_valid(X,Y,v_size=0.9,rand=False,split=0,block=0):
     if rand:
@@ -144,23 +166,23 @@ def build_model(x_train):
     num_classes = 7
 
     model = Sequential()
-    model.add(BatchNormalization(input_shape=x_train.shape[1:]))
+    # model.add(BatchNormalization(input_shape=x_train.shape[1:]))
 
-    model.add(Conv2D(64, (3, 3), padding='same'))#,
-                 #input_shape=x_train.shape[1:]))
+    model.add(Conv2D(64, (3, 3), padding='same',
+                 input_shape=x_train.shape[1:]))
                  
     model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(64, (3, 3)))
-    # model.add(BatchNormalization())
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
     model.add(Conv2D(128, (3, 3), padding='same'))
-    model.add(BatchNormalization())
+    # model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(128, (3, 3)))
@@ -175,7 +197,7 @@ def build_model(x_train):
     model.add(Activation('relu'))
 
     model.add(Conv2D(128, (3, 3)))
-    # model.add(BatchNormalization())
+    model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -246,7 +268,7 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
     else:
         model.fit(x_train, y_train,
                 batch_size=256,
-                epochs=40,
+                epochs=30,
                 validation_data=(x_test, y_test),
                 shuffle=True,
                 callbacks=[tensorboard, checkpoint, early_stopping])
@@ -278,9 +300,7 @@ if __name__=="__main__":
     if "-aug" in sys.argv:
         X_train, Y_train = augmentation(X_train, Y_train)
     
-    X_train = normalization(X_train)
-    X_test = normalization(X_test)
-    X_valid = normalization(X_valid)
+    X_train, X_valid, X_test = normalization(X_train, X_valid, X_test)
 
     if '-init' in sys.argv:
         model = build_model(X_train)
