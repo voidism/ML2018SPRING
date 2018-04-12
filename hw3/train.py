@@ -170,7 +170,6 @@ def build_model(x_train):
 
     model.add(Conv2D(64, (3, 3), padding='same',
                  input_shape=x_train.shape[1:]))
-                 
     model.add(BatchNormalization())
     model.add(Activation('relu'))
 
@@ -181,16 +180,7 @@ def build_model(x_train):
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
-    model.add(Conv2D(128, (3, 3), padding='same'))
-    # model.add(BatchNormalization())
-    model.add(Activation('relu'))
 
-    model.add(Conv2D(128, (3, 3)))
-    # model.add(BatchNormalization())
-    model.add(Activation('relu'))
-
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
 
     model.add(Conv2D(128, (3, 3), padding='same'))
     model.add(BatchNormalization())
@@ -202,6 +192,21 @@ def build_model(x_train):
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
+
+
+
+    model.add(Conv2D(128, (3, 3), padding='same'))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+
+    model.add(Conv2D(128, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+
 
     model.add(Flatten())
     model.add(Dense(512))
@@ -247,6 +252,7 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
     tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
     checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', patience=30, verbose=1)
+    batch_size = 256
 
     if gen:
         datagen = ImageDataGenerator(  
@@ -259,7 +265,6 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
             fill_mode='nearest')
 
         datagen.fit(x_train)
-        batch_size = 256
         model.fit_generator(datagen.flow(x_train,  
                             y_train, batch_size=batch_size),
                         steps_per_epoch=round(len(x_train)/batch_size),
@@ -283,6 +288,28 @@ def test(test,filename = "ans.csv",model_name='my_model.h5',checkname=""):
     else:
         model = load_model('training_logs/checkpoint-'+checkname+'.hdf5')
     result = np.argmax(model.predict(test),axis=1)
+    for idx in range(result.shape[0]):
+        ans.append([idx,result[idx]])
+
+    text = open(filename, "w")
+    s = csv.writer(text, delimiter=',', lineterminator='\n')
+    s.writerow(["id", "label"])
+    for i in range(len(ans)):
+        s.writerow(ans[i])
+    text.close()
+
+
+def ensemble_test(test,filename = "ans.csv",model_name=['my_model_67901.h5','my_model_68013.h5','my_model_67539.h5']):
+    ans = []
+    models = []
+    sub_results = []
+    for i in model_name:
+        models.append(load_model(i))
+    for j in models:
+        sub_results.append(j.predict(test))
+    pre_result = np.sum(np.array(sub_results), axis=0)
+    
+    result = np.argmax(pre_result,axis=1)
     for idx in range(result.shape[0]):
         ans.append([idx,result[idx]])
 
