@@ -183,11 +183,11 @@ def build_model(x_train):
 
 
     model.add(Conv2D(128, (3, 3), padding='same'))
-    model.add(BatchNormalization())
+    # model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(Conv2D(128, (3, 3)))
-    model.add(BatchNormalization())
+    # model.add(BatchNormalization())
     model.add(Activation('relu'))
 
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -251,7 +251,7 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
 
     tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
     checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
-    early_stopping = EarlyStopping(monitor='val_loss', patience=30, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
     batch_size = 256
 
     if gen:
@@ -273,7 +273,7 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
     else:
         model.fit(x_train, y_train,
                 batch_size=256,
-                epochs=30,
+                epochs=40,
                 validation_data=(x_test, y_test),
                 shuffle=True,
                 callbacks=[tensorboard, checkpoint, early_stopping])
