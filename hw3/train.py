@@ -24,6 +24,7 @@ from keras import layers
 from keras.models import load_model
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img  
 from counter import counter
+
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 
 def augment_img(X, Y, datagen, expand_size):
