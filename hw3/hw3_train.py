@@ -70,7 +70,7 @@ def augmentation(X_train, Y_train, expand_size=5):
 
     return X_train, Y_train
 
-def load_data(train_data_path='train.csv',test_data_path='test.csv'):
+def load_data(train_data_path='train.csv'):
     r = csv.reader(open(train_data_path))
     l = list(r)[1:]
     X_train = []
@@ -80,9 +80,6 @@ def load_data(train_data_path='train.csv',test_data_path='test.csv'):
     for row in l:
         Y_pre.append(row[0])
         flat_array = np.array(row[1].split(' '),dtype=float)
-        # mu = np.mean(flat_array)
-        # sigma = np.std(flat_array)
-        # flat_array = (flat_array - mu) / sigma
         X_train.append(np.reshape(flat_array,(48,48,1)))
         ct.flush(j=idx)
         idx+=1
@@ -93,52 +90,12 @@ def load_data(train_data_path='train.csv',test_data_path='test.csv'):
     Y_train = np.zeros((Y_pre.shape[0],7))
     Y_train[np.arange(Y_pre.shape[0]), Y_pre] = 1
 
-    r = csv.reader(open(test_data_path))
-    l = list(r)[1:]
-    X_test = []
-    idx = 0
-    ct = counter(epoch=len(l),title="Loading Testing Data")
-    for row in l:
-        flat_array = np.array(row[1].split(' '),dtype=float)
-        # mu = np.mean(flat_array)
-        # sigma = np.std(flat_array)
-        # flat_array = (flat_array - mu) / sigma
-        X_test.append(np.reshape(flat_array,(48,48,1)))
-        ct.flush(idx)
-        idx+=1
-    X_test = np.array(X_test,dtype=float)
+    return X_train, Y_train
 
-    return X_train, Y_train, X_test
-
-def normalization(X_train, X_valid, X_test,std=False):
-    if std==False:
-        X_train /= 255
-        X_test /= 255
-        X_valid /= 255
-    elif std==True:
-        X_all = np.concatenate((X_train, X_valid, X_test))
-        for i in range(X_all.shape[0]):
-            X_all[i] = (X_all[i] - X_all[i].mean())/X_all[i].std()
-        # X_all = (X_all - X_all.mean())/X_all.std()
-        # X_all = X_all - X_all.min()
-    # flatten_array = np.zeros((X_all.shape[0],48*48))
-    # for i in range(X_all.shape[0]):
-    #     flatten_array[i,:] = X_all[i].flatten()
-    
-    # ct = counter(epoch=flatten_array.shape[1],title="Normalizing Data")
-    # for i in range(flatten_array.shape[1]):
-    #     mu = (sum(flatten_array[:,i]) / flatten_array.shape[0])
-    #     sigma = np.std(flatten_array[:,i], axis=0)
-    #     flatten_array[:,i] = (flatten_array[:,i] - mu) / sigma
-    #     ct.flush(i)
-
-    # for i in range(X_all.shape[0]):
-    #     X_all[i] = np.reshape(flatten_array[i,:],(48,48,1))
-
-        X_train = X_all[:X_train.shape[0]]
-        X_valid = X_all[X_train.shape[0]:X_train.shape[0]+X_valid.shape[0]]
-        X_test = X_all[-X_test.shape[0]:]
-    return X_train, X_valid, X_test
+def normalization(X_train, X_valid):
+    X_train /= 255
+    X_valid /= 255
+    return X_train, X_valid
 
 def split_valid(X,Y,v_size=0.9,rand=False,split=0,block=0):
     if rand:
@@ -234,21 +191,6 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
     model.compile(loss='categorical_crossentropy',
                 optimizer='adam',
                 metrics=['accuracy'])
-    ''' original:
-    model.fit(x_train, y_train,
-              batch_size=300,
-              epochs=40,
-              validation_data=(x_test, y_test),
-              shuffle=True)
-    '''
-    # model.fit_generator(datagen.flow(x_train, y_train, batch_size=50),
-    #                 steps_per_epoch=len(x_train) / 32, epochs=50,
-    #           validation_data=(x_test, y_test))
-    # model.fit_generator(datagen.flow(x_train, y_train, batch_size=100,
-    #           shuffle=True),
-    #           epochs=50,
-    #           steps_per_epoch=len(x_train) / 1000,
-    #           validation_data=(x_test, y_test))
 
     LOG_DIR = './training_logs'
     LOG_FILE_PATH = LOG_DIR + '/checkpoint-{epoch:02d}-{val_loss:.4f}.hdf5'   # 模型Log文件以及.h5模型文件存放地址
@@ -284,64 +226,15 @@ def train_model(model,x_train,y_train,x_test,y_test,gen=False):
 
     return model
 
-def test(test,filename = "ans.csv",model_name='my_model.h5',checkname=""):
-    ans = []
-    model = None
-    if checkname=="":
-        model = load_model('my_model.h5')
-    else:
-        model = load_model('training_logs/checkpoint-'+checkname+'.hdf5')
-    result = np.argmax(model.predict(test),axis=1)
-    for idx in range(result.shape[0]):
-        ans.append([idx,result[idx]])
-
-    text = open(filename, "w")
-    s = csv.writer(text, delimiter=',', lineterminator='\n')
-    s.writerow(["id", "label"])
-    for i in range(len(ans)):
-        s.writerow(ans[i])
-    text.close()
-
-
-def ensemble_test(test,filename = "ans.csv",model_name=['my_model_67901.h5','my_model_68013.h5','my_model_67539.h5']):
-    ans = []
-    models = []
-    sub_results = []
-    for i in model_name:
-        models.append(load_model(i))
-    for j in models:
-        sub_results.append(j.predict(test))
-    pre_result = np.sum(np.array(sub_results), axis=0)
-    
-    result = np.argmax(pre_result,axis=1)
-    for idx in range(result.shape[0]):
-        ans.append([idx,result[idx]])
-
-    text = open(filename, "w")
-    s = csv.writer(text, delimiter=',', lineterminator='\n')
-    s.writerow(["id", "label"])
-    for i in range(len(ans)):
-        s.writerow(ans[i])
-    text.close()
     
 if __name__=="__main__":
-    X_train, Y_train, X_test = load_data()
+    X_train, Y_train= load_data(sys.argv[1])
     X_train, Y_train, X_valid, Y_valid = split_valid(X_train, Y_train)
 
     if "-aug" in sys.argv:
         X_train, Y_train = augmentation(X_train, Y_train)
-    norm = '-norm' in sys.argv
-    X_train, X_valid, X_test = normalization(X_train, X_valid, X_test,std=norm)
+    X_train, X_valid= normalization(X_train, X_valid)
 
-    if '-init' in sys.argv:
-        model = build_model(X_train)
-    elif '-good' in sys.argv:
-        model = load_model('my_model_init.h5')
-    elif '-cont' in sys.argv:
-        model = load_model('my_model.h5')
-    else:
-        print('No Arguments!')
-        sys.exit()
+    model = build_model(X_train)
     model = train_model(model, X_train, Y_train, X_valid, Y_valid)
     model.save('my_model.h5')
-    test(X_test)
