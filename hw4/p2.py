@@ -4,14 +4,15 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import csv
 from output import output
+import os, sys
 
-def main(a, filename):
+def main(a, filename, output_name):
     #a = StandardScaler().fit_transform(a)
     pca = PCA(n_components=400, whiten=True)
     p = pca.fit_transform(a)
-    while(True):
+    for i in range(3):
         k = KMeans(n_clusters=2, random_state=100).fit(p)
-        np.save('klabels.npy', k.labels_)
+        # np.save('klabels.npy', k.labels_)
         print('ksum:',k.labels_.sum())
         if k.labels_.sum()==70000:
             break
@@ -26,9 +27,9 @@ def main(a, filename):
         else:
             ans.append([i[0], '0'])
 
-    output(ans, name='whiten_ans.csv')
+    output(ans, name=output_name)
 
 if __name__ == '__main__':
-    a = np.load('./image.npy')
-    filename = 'test_case.csv'
-    main(a, filename)
+    a = np.load(sys.argv[1])
+    filename = sys.argv[2]
+    main(a, filename, output_name=sys.argv[3])
