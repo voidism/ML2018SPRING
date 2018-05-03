@@ -24,11 +24,11 @@ def get_SVD(X):
 # for i in range(10):
 #    io.imsave("eg"+str(i)+".jpg", np.reshape((U.T[i]+mean_face), (600, 600, 3)).astype('uint8'))
 # X, m = load_data()
-X = np.load('./X.npy')
-m = np.load('./mean_face.npy')
-U = np.load('./U.npy')
-s = np.load('./s.npy')
-V = np.load('./V.npy')
+# X = np.load('./X.npy')
+# m = np.load('./mean_face.npy')
+# U = np.load('./U.npy')
+# s = np.load('./s.npy')
+# V = np.load('./V.npy')
 
 def eigenface(U):
     for i in range(10):
@@ -44,7 +44,7 @@ def see_weight(U, s, V, X):
     W = S.dot(V)
     return C, W
 
-def reconstruct(x, U, mean_face, dim=4, name='reconstruction.jpg'):
+def reconstruct(x, U, mean_face, dim=4, name='reconstruction.png'):
     mean_face = np.reshape(mean_face,(600, 600, 3))
     u = U[:,:dim]
     w = u.T.dot(x)
@@ -62,16 +62,17 @@ def ratio(idx,s , all=False):
     else:
         return s[idx] / s[:4].sum()
 
-def recons_from_img(path, U, mean_face, dim=4, name='reconstruction.jpg'):
+def recons_from_img(path, U, mean_face, dim=4, name='reconstruction.png'):
     img = io.imread(path)
     img_array = np.array(img)
     img_array = img_array.reshape((600*600*3,))
-    x = img_array.T.astype('float64')
+    x = img_array.astype('float64')
+    x -= mean_face
     reconstruct(x, U, mean_face, dim, name)
 
 if __name__ == '__main__':
     img_path = os.path.join(sys.argv[1], '*')
     X, m=load_data(img_path)
     U, s, V=get_SVD(X)
-    recons_from_img(sys.argv[2], U, m)
+    recons_from_img(sys.argv[2], U, m, name='reconstruction.png')
     
