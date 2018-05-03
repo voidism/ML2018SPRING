@@ -71,8 +71,9 @@ def recons_from_img(path, U, mean_face, dim=4, name='reconstruction.png'):
     reconstruct(x, U, mean_face, dim, name)
 
 if __name__ == '__main__':
-    img_path = os.path.join(sys.argv[1], '*')
-    X, m=load_data(img_path)
-    U, s, V=get_SVD(X)
-    recons_from_img(sys.argv[2], U, m, name='reconstruction.png')
+    imgs_path = os.path.join(sys.argv[1], '*')
+    X, m=load_data(imgs_path)
+    U, s, V = get_SVD(X)
+    img = imgs_path = os.path.join(sys.argv[1], sys.argv[2])
+    recons_from_img(img, U, m, name='reconstruction.png')
     
