@@ -74,6 +74,6 @@ if __name__ == '__main__':
     imgs_path = os.path.join(sys.argv[1], '*')
     X, m=load_data(imgs_path)
     U, s, V = get_SVD(X)
-    img = imgs_path = os.path.join(sys.argv[1], sys.argv[2])
+    img = os.path.join(sys.argv[1], sys.argv[2])
     recons_from_img(img, U, m, name='reconstruction.png')
     
