@@ -165,16 +165,27 @@ def load_test_data(testname):
 
     word2idx = json.load(open('word2idx.json'))
     maxlen = 0
+    # missing_words = []
+    gex = re.compile(r'(\w)(\1)+')
+    gex0 = re.compile('(0)')
     for i in range(len(x)):
         for j in range(len(x[i])):
             try:
                 x[i][j] = word2idx[x[i][j]]
             except:
-                print('no such word:',x[i][j])
-                x[i][j] = 0
+                # missing_words.append(x[i][j])
+                #print(x[i][j])
+                new = gex0.sub(r'o',x[i][j])
+                new = gex.sub(r'\1',new)
+                if new in word2idx.keys():
+                    # print(x[i][j],"->",new)
+                    x[i][j] = word2idx[new]
+                else:
+                    x[i][j] = 0
         x[i] = np.array(x[i],dtype = int)
         if len(x[i])>maxlen:
             maxlen = len(x[i])
+    # np.save('missing.npy',missing_words)
     X_test = np.zeros((len(x),maxlen),dtype=int)
     for i in range(X_test.shape[0]):
         X_test[i][:x[i].shape[0]] = x[i]
@@ -185,7 +196,7 @@ def load_test_data(testname):
 def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5'):
     test = load_test_data(testname)
     ans = []
-    model = load_model('model.h5')
+    model = load_model(model_name)
     result = np.argmax(model.predict(test),axis=1)
     for idx in range(result.shape[0]):
         ans.append([idx,result[idx]])
