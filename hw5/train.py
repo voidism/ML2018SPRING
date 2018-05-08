@@ -3,10 +3,12 @@ import re, json
 from math import floor
 import numpy as np
 from gensim import models
+from keras.models import load_model
 from keras.layers import Embedding
 from keras.models import Sequential
 from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
 import logging
+from output import output
 
 def load_word_data():
     label_data = open('training_label.txt').read()
@@ -141,13 +143,57 @@ def train_rnn():
     model = build_model(word2vec_weights)
     x, y = load_train_data()
     X_train, Y_train, X_test, Y_test = split_valid(x, y)
-    model.fit(X_train, Y_train, batch_size=256,
+    model.fit(X_train, Y_train, batch_size=256,epochs=40,
               validation_data=(X_test, Y_test))
     model.save('model.h5')
 
+def load_test_data(testname):
+    test_data = open(testname).read()
+    c = test_data.split('\n')
+
+    c = c[1:-1]
+    gex = re.compile(r'(\d*),(.*)')
+    for i in range(len(c)):
+        try:
+            c[i] = gex.findall(c[i])[0][1]
+        except:
+            print(i, c[i])
+
+    x = []
+    for i in c:
+        x.append(i.split(' '))
+
+    word2idx = json.load(open('word2idx.json'))
+    maxlen = 0
+    for i in range(len(x)):
+        for j in range(len(x[i])):
+            try:
+                x[i][j] = word2idx[x[i][j]]
+            except:
+                print('no such word:',x[i][j])
+                x[i][j] = 0
+        x[i] = np.array(x[i],dtype = int)
+        if len(x[i])>maxlen:
+            maxlen = len(x[i])
+    X_test = np.zeros((len(x),maxlen),dtype=int)
+    for i in range(X_test.shape[0]):
+        X_test[i][:x[i].shape[0]] = x[i]
+    print("sentence max length:",maxlen)
+
+    return X_test
+
+def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5'):
+    test = load_test_data(testname)
+    ans = []
+    model = load_model('model.h5')
+    result = np.argmax(model.predict(test),axis=1)
+    for idx in range(result.shape[0]):
+        ans.append([idx,result[idx]])
+    output(ans,name=filename)
 
 
 if __name__ == "__main__":
     logging.basicConfig(format=chr(13)+'%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     # train_word2vec()
     train_rnn()
+    test()
