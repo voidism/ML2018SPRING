@@ -7,6 +7,7 @@ from keras.models import load_model
 from keras.layers import Embedding
 from keras.models import Sequential
 from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
+from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 import logging
 from output import output
 
@@ -48,17 +49,7 @@ def load_train_data():
         x.append(i.split(' '))
 
     word2idx = json.load(open('word2idx.json'))
-    maxlen = 0
-    for i in range(len(x)):
-        for j in range(len(x[i])):
-            try:
-                x[i][j] = word2idx[x[i][j]]
-            except:
-                print('no such word:',x[i][j])
-                x[i][j] = 0
-        x[i] = np.array(x[i],dtype = int)
-        if len(x[i])>maxlen:
-            maxlen = len(x[i])
+    x, maxlen = handle_type_err(word2idx, x)
     X_train = np.zeros((len(x),maxlen),dtype=int)
     for i in range(X_train.shape[0]):
         X_train[i][:x[i].shape[0]] = x[i]
@@ -71,7 +62,7 @@ def load_train_data():
 
     return X_train, Y_train
 
-def split_valid(X,Y,v_size=0.9,rand=False,split=0,block=0):
+def split_valid(X,Y,v_size=0.95,rand=False,split=0,block=0):
     if rand:
         randomize = np.arange(len(X))
         np.random.shuffle(randomize)
@@ -123,13 +114,14 @@ def train_word2vec():
 def build_model(word2vec_weights):
     model = Sequential()
     model.add(Embedding(word2vec_weights.shape[0],
-                word2vec_weights.shape[1],mask_zero=True,
+                word2vec_weights.shape[1],#mask_zero=True,
                 weights=[word2vec_weights],
                 trainable=False))
     model.add(SpatialDropout1D(0.4))
     model.add(LSTM(196, dropout=0.2, recurrent_dropout=0.2,
                    activation='sigmoid',
-                   inner_activation='hard_sigmoid'))
+                   inner_activation='hard_sigmoid',
+                   implementation=2))
     model.add(Dense(2,activation='softmax'))
     model.compile(loss = 'categorical_crossentropy', optimizer='adam',metrics = ['accuracy'])
     model.summary()
@@ -140,14 +132,22 @@ def train_rnn():
     # word2vec_dict = json.load('word2vec.json')
     # word2vec_model = models.Word2Vec.load('word2vec.model')
 
+    LOG_DIR = './training_logs'
+    LOG_FILE_PATH = LOG_DIR + '/checkpoint-{epoch:02d}-{val_loss:.4f}.hdf5'   # 模型Log文件以及.h5模型文件存放地址
+
+    tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
+    checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
+
     model = build_model(word2vec_weights)
     x, y = load_train_data()
     X_train, Y_train, X_test, Y_test = split_valid(x, y)
-    model.fit(X_train, Y_train, batch_size=256,epochs=40,
-              validation_data=(X_test, Y_test))
+    model.fit(X_train, Y_train, batch_size=256,epochs=80,
+              validation_data=(X_test, Y_test),
+              callbacks=[tensorboard, checkpoint, early_stopping])
     model.save('model.h5')
 
-def load_test_data(testname):
+def load_test_data(testname='testing_data.txt'):
     test_data = open(testname).read()
     c = test_data.split('\n')
 
@@ -164,28 +164,7 @@ def load_test_data(testname):
         x.append(i.split(' '))
 
     word2idx = json.load(open('word2idx.json'))
-    maxlen = 0
-    # missing_words = []
-    gex = re.compile(r'(\w)(\1)+')
-    gex0 = re.compile('(0)')
-    for i in range(len(x)):
-        for j in range(len(x[i])):
-            try:
-                x[i][j] = word2idx[x[i][j]]
-            except:
-                # missing_words.append(x[i][j])
-                #print(x[i][j])
-                new = gex0.sub(r'o',x[i][j])
-                new = gex.sub(r'\1',new)
-                if new in word2idx.keys():
-                    # print(x[i][j],"->",new)
-                    x[i][j] = word2idx[new]
-                else:
-                    x[i][j] = 0
-        x[i] = np.array(x[i],dtype = int)
-        if len(x[i])>maxlen:
-            maxlen = len(x[i])
-    # np.save('missing.npy',missing_words)
+    x, maxlen = handle_type_err(word2idx, x)
     X_test = np.zeros((len(x),maxlen),dtype=int)
     for i in range(X_test.shape[0]):
         X_test[i][:x[i].shape[0]] = x[i]
@@ -193,14 +172,120 @@ def load_test_data(testname):
 
     return X_test
 
+def load_nobel_data(testname='training_nolabel.txt'):
+    test_data = open(testname).read()
+    c = test_data.split('\n')[:-1]
+    x = []
+    for i in c:
+        sen = i.split(' ')
+        if len(sen)<=39:
+            x.append(sen)
+
+    word2idx = json.load(open('word2idx.json'))
+    x, maxlen = handle_type_err(word2idx, x)
+
+    X_test = np.zeros((len(x),maxlen),dtype=int)
+    for i in range(X_test.shape[0]):
+        X_test[i][:x[i].shape[0]] = x[i]
+    print("sentence max length:",maxlen)
+
+    return X_test
+
+def handle_type_err(word2idx, x):
+    maxlen = 0
+    gex = re.compile(r'(\w)(\1)+')
+    gex0 = re.compile('(0)')
+    for i in range(len(x)):
+        for j in range(len(x[i])):
+            try:
+                x[i][j] = word2idx[x[i][j]]
+            except:
+                #print(x[i][j])
+                noo = gex0.sub(r'o',x[i][j])
+                new = gex.sub(r'\1',noo)
+                if new in word2idx.keys():
+                    # print(x[i][j],"->",new)
+                    # saving_words.append(new)
+                    x[i][j] = word2idx[new]
+                else:
+                    new = gex.sub(r'\1\1',noo)
+                    if new in word2idx.keys():
+                        # print(x[i][j],"->",new)
+                        # saving_words.append(new)
+                        x[i][j] = word2idx[new]
+                    else:
+                        # missing_words.append(x[i][j])
+                        x[i][j] = 0
+        x[i] = np.array(x[i],dtype = int)
+        if len(x[i])>maxlen:
+            maxlen = len(x[i])
+    return x, maxlen
+
 def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5'):
     test = load_test_data(testname)
     ans = []
     model = load_model(model_name)
-    result = np.argmax(model.predict(test),axis=1)
+    result = np.argmax(model.predict(test, batch_size = 512, verbose=1),axis=1)
     for idx in range(result.shape[0]):
         ans.append([idx,result[idx]])
     output(ans,name=filename)
+
+def semi_learning(from_model='model_82296.h5'):
+    nobel = load_nobel_data()
+    model = load_model(from_model)
+    _x, _y = load_train_data()
+    _X_train, _Y_train, X_test, Y_test = split_valid(_x, _y)
+
+    while(True):
+        X_train, Y_train, nobel = semi_gen(nobel, model)
+        if len(nobel)==0:
+            print('no nolabel data remain, Great!')
+            break
+        if len(Y_train)==0:
+            print('no semi data generated, So sad!')
+            break
+        print(25*"-")
+        print("semi-supervised learning with:")
+        print("X_train:",len(X_train),"Y_train:",len(Y_train),"un-labeled:",len(nobel))
+        e = input("[Y/N?]")
+        if e=='N':
+            break
+        model = semi_fit(X_train, Y_train, X_test, Y_test, model)
+    model.save('model.h5')
+        
+def semi_fit(X_train, Y_train, X_test, Y_test, model):
+    LOG_DIR = './training_logs'
+    LOG_FILE_PATH = LOG_DIR + '/checkpoint-{epoch:02d}-{val_loss:.4f}.hdf5'
+    tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
+    checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
+    callbacks=[tensorboard, checkpoint, early_stopping]
+
+    model.fit(X_train, Y_train, batch_size=256,epochs=80,
+              validation_data=(X_test, Y_test),
+              callbacks=[tensorboard, checkpoint, early_stopping])
+    return model
+
+def semi_gen(x,model):
+    result = model.predict(x, batch_size = 512, verbose=1)
+    good_pred_x = []
+    good_pred_y = []
+    remain_x = []
+    for i in result:
+        if abs(i[0]-i[1])>= 0.95:
+            good_pred_x.append(i)
+            good_pred_y.append(np.argmax(i))
+        else:
+            remain_x.append(i)
+
+    y = np.array(good_pred_y,dtype=int)
+
+    # one-hot encoding
+    Y_train = np.zeros((y.shape[0],2))
+    Y_train[np.arange(y.shape[0]), y] = 1
+    X_train = np.array(good_pred_x)
+    R_train = np.array(remain_x)
+    return X_train, Y_train, R_train
 
 
 if __name__ == "__main__":
