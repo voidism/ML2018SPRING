@@ -10,6 +10,7 @@ from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 import logging
 from output import output
+from keras import backend as K
 
 def load_word_data():
     label_data = open('training_label.txt').read()
@@ -126,6 +127,10 @@ def build_model(word2vec_weights):
     model.compile(loss = 'categorical_crossentropy', optimizer='adam',metrics = ['accuracy'])
     model.summary()
     return model
+
+def entropy_based_reg(weight_matrix):
+    return 0.01 * K.sum(K.abs(weight_matrix))
+
 
 def train_rnn():
     word2vec_weights = np.load('word2vec_weights.npy')
@@ -252,6 +257,31 @@ def semi_learning(from_model='model_82296.h5'):
             break
         model = semi_fit(X_train, Y_train, X_test, Y_test, model)
     model.save('model.h5')
+
+def semi_one(from_model='model_82671.h5',rand=True):
+    nobel = load_nobel_data()
+    model = load_model(from_model)
+    x, y = load_train_data()
+    X_Org, Y_Org, X_test, Y_test = split_valid(x, y)
+
+    X_train, Y_train, nobel = semi_gen(nobel, model)
+    if len(nobel)==0:
+        print('no nolabel data remain, Great!')
+        # break
+    if len(Y_train)==0:
+        print('no semi data generated, So sad!')
+        # break
+    print(25*"-")
+    print("semi-supervised learning with:")
+    print("X_train:",len(X_train),"Y_train:",len(Y_train),"un-labeled:",len(nobel))
+    X = np.concatenate((X_Org, X_train),axis=0)
+    Y = np.concatenate((Y_Org, Y_train),axis=0)
+    if rand:
+        randomize = np.arange(len(X))
+        np.random.shuffle(randomize)
+        X,Y = (X[randomize], Y[randomize])
+    model = semi_fit(X, Y, X_test, Y_test, model)
+    model.save('model.h5')
         
 def semi_fit(X_train, Y_train, X_test, Y_test, model):
     LOG_DIR = './training_logs'
@@ -261,7 +291,7 @@ def semi_fit(X_train, Y_train, X_test, Y_test, model):
     early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
     callbacks=[tensorboard, checkpoint, early_stopping]
 
-    model.fit(X_train, Y_train, batch_size=256,epochs=80,
+    model.fit(X_train, Y_train, batch_size=256,epochs=50,
               validation_data=(X_test, Y_test),
               callbacks=[tensorboard, checkpoint, early_stopping])
     return model
@@ -271,18 +301,21 @@ def semi_gen(x,model):
     good_pred_x = []
     good_pred_y = []
     remain_x = []
-    for i in result:
-        if abs(i[0]-i[1])>= 0.95:
-            good_pred_x.append(i)
-            good_pred_y.append(np.argmax(i))
+    for i in range(len(result)):
+        if (result[i][0]-result[i][1])>= 0.9:
+            good_pred_x.append(x[i])
+            good_pred_y.append([1,0])
+        elif (-result[i][0]+result[i][1])>= 0.9:
+            good_pred_x.append(x[i])
+            good_pred_y.append([0,1])
         else:
-            remain_x.append(i)
+            remain_x.append(x[i])
 
-    y = np.array(good_pred_y,dtype=int)
+    Y_train = np.array(good_pred_y,dtype=int)
 
     # one-hot encoding
-    Y_train = np.zeros((y.shape[0],2))
-    Y_train[np.arange(y.shape[0]), y] = 1
+    # Y_train = np.zeros((y.shape[0],2))
+    # Y_train[np.arange(y.shape[0]), y] = 1
     X_train = np.array(good_pred_x)
     R_train = np.array(remain_x)
     return X_train, Y_train, R_train
