@@ -15,29 +15,27 @@ from keras import backend as K
 def load_word_data():
     label_data = open('training_label.txt').read()
     nobel_data = open('training_nolabel.txt').read()
-    test_data = open('testing_data.txt').read()
+    # test_data = open('testing_data.txt').read()
     a = label_data.split('\n')
     b = nobel_data.split('\n')
-    c = test_data.split('\n')
+    # c = test_data.split('\n')
 
     for i in range(len(a)):
         a[i] = a[i][10:]
 
-    c = c[1:-1]
-    gex = re.compile(r'(\d*),(.*)')
-    for i in range(len(c)):
-        try:
-            c[i] = gex.findall(c[i])[0][1]
-        except:
-            print(i, c[i])
-    all = a + b + c
+    all = a + b
     ret = []
     for i in all:
         ret.append(i.split(' '))
     return ret
 
-def load_train_data():
+def load_train_data(no_comma=False):
     label_data = open('training_label.txt').read()
+    if no_comma:
+        gex = re.compile("[\!,\.:;\?\'\"]")
+        label_data = gex.sub(' ',label_data)
+        gex = re.compile(' +')
+        label_data = gex.sub(' ',label_data)
     a = label_data.split('\n')[:-1]
     y = []
 
@@ -102,7 +100,7 @@ def train_word2vec():
     vocab_dict = dict([(k, model.wv[k]) for k, v in model.wv.vocab.items()])
     np.save('word2vec_dict.npy', vocab_dict)
     word2vec_weights = model.wv.syn0
-    word2vec_weights = np.concatenate((np.zeros(1,250),word2vec_weights),axis=1)
+    word2vec_weights = np.concatenate((np.zeros((1,250)),word2vec_weights),axis=0)
     np.save('word2vec_weights.npy',word2vec_weights)
     idx2word_list = ['_PAD'] + model.wv.index2word
     idx2word = dict([(x, idx2word_list[x]) for x in range(len(idx2word_list))])
@@ -132,7 +130,7 @@ def entropy_based_reg(weight_matrix):
     return 0.01 * K.sum(K.abs(weight_matrix))
 
 
-def train_rnn():
+def train_rnn(no_comma=False):
     word2vec_weights = np.load('word2vec_weights.npy')
     # word2vec_dict = json.load('word2vec.json')
     # word2vec_model = models.Word2Vec.load('word2vec.model')
@@ -145,15 +143,20 @@ def train_rnn():
     early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
 
     model = build_model(word2vec_weights)
-    x, y = load_train_data()
+    x, y = load_train_data(no_comma=no_comma)
     X_train, Y_train, X_test, Y_test = split_valid(x, y)
     model.fit(X_train, Y_train, batch_size=256,epochs=80,
               validation_data=(X_test, Y_test),
               callbacks=[tensorboard, checkpoint, early_stopping])
     model.save('model.h5')
 
-def load_test_data(testname='testing_data.txt'):
+def load_test_data(testname='testing_data.txt',no_comma=False):
     test_data = open(testname).read()
+    if no_comma:
+        gex = re.compile("[\!,\.:;\?\'\"]")
+        test_data = gex.sub(' ',test_data)
+        gex = re.compile(' +')
+        test_data = gex.sub(' ',test_data)
     c = test_data.split('\n')
 
     c = c[1:-1]
@@ -226,14 +229,34 @@ def handle_type_err(word2idx, x):
             maxlen = len(x[i])
     return x, maxlen
 
-def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5'):
-    test = load_test_data(testname)
+def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5',no_comma=False):
+    test = load_test_data(testname,no_comma=no_comma)
     ans = []
     model = load_model(model_name)
     result = np.argmax(model.predict(test, batch_size = 512, verbose=1),axis=1)
     for idx in range(result.shape[0]):
         ans.append([idx,result[idx]])
     output(ans,name=filename)
+
+def exam(sentence="today is a good day, but it is hot", model_name='model_82618.h5'):
+    x = [sentence.split(' ')]
+
+    word2idx = json.load(open('word2idx.json'))
+    x, maxlen = handle_type_err(word2idx, x)
+    X_test = np.zeros((len(x),39),dtype=int)
+    for i in range(X_test.shape[0]):
+        X_test[i][:x[i].shape[0]] = x[i]
+
+    model = load_model(model_name)
+    score = model.predict(X_test, batch_size = 512, verbose=1)
+    result = np.argmax(score,axis=1)
+    if result == 1:
+        print("Happy~~")
+    else:
+        print('Sad~~')
+    return score
+    
+    
 
 def semi_learning(from_model='model_82296.h5'):
     nobel = load_nobel_data()
@@ -258,13 +281,13 @@ def semi_learning(from_model='model_82296.h5'):
         model = semi_fit(X_train, Y_train, X_test, Y_test, model)
     model.save('model.h5')
 
-def semi_one(from_model='model_82671.h5',rand=True):
+def semi_one(from_model=['model_82666.h5','model_new2.h5','model_new3.h5'],rand=True):
     nobel = load_nobel_data()
-    model = load_model(from_model)
+    old_model = load_model(from_model)
     x, y = load_train_data()
     X_Org, Y_Org, X_test, Y_test = split_valid(x, y)
 
-    X_train, Y_train, nobel = semi_gen(nobel, model)
+    X_train, Y_train, nobel = semi_gen(nobel, old_model)
     if len(nobel)==0:
         print('no nolabel data remain, Great!')
         # break
@@ -280,6 +303,8 @@ def semi_one(from_model='model_82671.h5',rand=True):
         randomize = np.arange(len(X))
         np.random.shuffle(randomize)
         X,Y = (X[randomize], Y[randomize])
+    word2vec_weights = np.load('word2vec_weights.npy')
+    model = build_model(word2vec_weights)
     model = semi_fit(X, Y, X_test, Y_test, model)
     model.save('model.h5')
         
@@ -289,9 +314,9 @@ def semi_fit(X_train, Y_train, X_test, Y_test, model):
     tensorboard = TensorBoard(log_dir=LOG_DIR, write_images=True)
     checkpoint = ModelCheckpoint(filepath=LOG_FILE_PATH, monitor='val_loss', verbose=1, save_best_only=True)
     early_stopping = EarlyStopping(monitor='val_loss', patience=40, verbose=1)
-    callbacks=[tensorboard, checkpoint, early_stopping]
+    # callbacks=[tensorboard, checkpoint, early_stopping]
 
-    model.fit(X_train, Y_train, batch_size=256,epochs=50,
+    model.fit(X_train, Y_train, batch_size=256,epochs=80,
               validation_data=(X_test, Y_test),
               callbacks=[tensorboard, checkpoint, early_stopping])
     return model
