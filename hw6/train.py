@@ -3,7 +3,7 @@ from keras.models import Model, load_model
 from keras.layers import Input, Embedding, Flatten, Dot, Add, Concatenate, Dropout, Dense
 from keras.regularizers import l2
 from keras import optimizers
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 import csv
 from math import floor
 from output import output
@@ -23,8 +23,8 @@ global _mean, _std
 # keras.objectives.custom_loss = rmse
 
 def build_model(user_dim, movie_dim, latent_dim,sgd):
-    user_input = Input(shape=(1,))
-    movie_input = Input(shape=(1,))
+    user_input = Input(shape=[1])
+    movie_input = Input(shape=[1])
     user_embed = Embedding(user_dim, latent_dim, embeddings_regularizer=l2(0.00001))(user_input)
     user_vec = Flatten()(user_embed)
     user_vec = Dropout(0.5)(user_vec)
@@ -42,7 +42,7 @@ def build_model(user_dim, movie_dim, latent_dim,sgd):
     model.compile(loss='mse', optimizer=sgd, metrics=[rmse])#, embeddings_initializer='random_normal'
     return model
 
-def build_nn_model(user_dim, movie_dim, latent_dim,sgd):
+def build_ex_model(user_dim, movie_dim, latent_dim,sgd):
     user_input = Input(shape=[1])
     movie_input = Input(shape=[1])
     user_embed = Embedding(user_dim, latent_dim, embeddings_regularizer=l2(0.00001))(user_input)
@@ -87,12 +87,13 @@ def split_valid(X,Y,Z,v_size=0.95,rand=True):
     return X, Y, Z, Vx, Vy, Vz
 
 
-def load_data():
+def load_data(nor=True):
     r = csv.reader(open('train.csv'))
     l = list(r)[1:]
     a = np.array(l, dtype=float)
     rate = np.array(a.T[3][:])
-    rate = (rate - rate.mean()) / rate.std()
+    if nor:
+        rate = (rate - rate.mean()) / rate.std()
     return a.T[1] - 1, a.T[2] - 1, rate
 
 def mean_std():
@@ -110,15 +111,15 @@ def load_test(name = 'test.csv'):
     a = np.array(l, dtype=float)
     return a.T[1] - 1, a.T[2] - 1
     
-def test(in_name='test.csv', out_name='ans.csv', model_name='model.h5'):
+def test(in_name='test.csv', out_name='ans.csv', model_name='model.h5',nor=True):
     def rmse(y_true, y_pred): return K.sqrt( K.mean(((y_pred - y_true)*_std)**2) )
     #model.compile(loss='mse', optimizer=sgd, metrics=[rmse])
     model = load_model(model_name, custom_objects={'rmse':rmse})
     x, y = load_test()
     res = model.predict([x, y], batch_size=10000)
-
-    mean, std = mean_std()
-    res = res * std + mean
+    if nor:
+        mean, std = mean_std()
+        res = res * std + mean
     res = res.flatten()
     ans = []
     idx = 1
@@ -140,8 +141,18 @@ def retrive_extra(user='users.csv', movie='movies.csv'):
         m_data.append(l[i].split('::')[2].split('|'))
     return m_data
 
-def train(mf=False,nn=False,extra=False,bs=10000,dim=16,epo=30,sgd='adam',whole=False):
-    x, y, z = load_data()
+def exam_dim(rg=[16,32,64,128,256,512,1024]):
+    total_sc = []
+    for i in rg:
+        his = train(mf=True,dim=i)
+        score = np.round(his.history['val_rmse'].min(),5)
+        total_sc.append([i,score])
+        test(model_name='mf_model.h5', out_name='ans_dim_%d_val_%d.csv'%(i,score))
+    return total_sc
+
+
+def train(mf=False,ex=False,extra=False,bs=10000,dim=16,epo=300,sgd='adam',whole=False, nor=True):
+    x, y, z = load_data(nor=nor)
     vx = None
     vy = None
     vz = None
@@ -153,20 +164,23 @@ def train(mf=False,nn=False,extra=False,bs=10000,dim=16,epo=30,sgd='adam',whole=
         model_name = 'mf_model.h5'
         # sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
         model = build_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd)
-    elif nn:
-        model_name = 'nn_model.h5'
-        model = build_nn_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd)
+    elif ex:
+        model_name = 'ex_model.h5'
+        model = build_ex_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd)
     cb = [EarlyStopping(monitor='val_rmse', patience=30, verbose=1, mode='min'),
+    TensorBoard(log_dir='./log', write_images=True),
     ModelCheckpoint(filepath=model_name, monitor='val_rmse', mode='min',save_best_only=True)]
+    history = None
     if not whole:
-        model.fit([x, y],z, batch_size=bs, epochs=epo, validation_data=([vx,vy],vz), callbacks=cb, verbose=1)
+        history = model.fit([x, y],z, batch_size=bs, epochs=epo, validation_data=([vx,vy],vz), callbacks=cb, verbose=1)
     else:
-        model.fit([x, y],z, batch_size=bs, epochs=epo, callbacks=cb, verbose=1)
+        history = model.fit([x, y],z, batch_size=bs, epochs=epo, callbacks=cb, verbose=1)
 
     model.save('model.h5')
+    return history
 
 if __name__ == '__main__':
-    train(nn=True)
+    train(ex=True)
     test()
     
     
