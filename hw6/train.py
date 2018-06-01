@@ -9,6 +9,7 @@ from math import floor
 from output import output
 from keras import backend as K
 import keras.objectives
+import pandas as pd
 
 global _mean, _std
 
@@ -22,7 +23,7 @@ global _mean, _std
 
 # keras.objectives.custom_loss = rmse
 
-def build_model(user_dim, movie_dim, latent_dim,sgd):
+def build_model(user_dim, movie_dim, latent_dim,sgd,bias=True):
     user_input = Input(shape=[1])
     movie_input = Input(shape=[1])
     user_embed = Embedding(user_dim, latent_dim, embeddings_regularizer=l2(0.00001))(user_input)
@@ -35,7 +36,8 @@ def build_model(user_dim, movie_dim, latent_dim,sgd):
     user_bias = Flatten()(Embedding(user_dim, 1)(user_input))
     movie_bias = Flatten()(Embedding(movie_dim, 1)(movie_input))
     res = Dot(axes=1)([user_vec, movie_vec])
-    res = Add()([res, user_bias, movie_bias])
+    if bias:
+        res = Add()([res, user_bias, movie_bias])
     # res = Dense(1,activation='linear')
     model = Model([user_input, movie_input], res)
     def rmse(y_true, y_pred): return K.sqrt( K.mean(((y_pred - y_true)*_std)**2) )
@@ -43,26 +45,30 @@ def build_model(user_dim, movie_dim, latent_dim,sgd):
     return model
 
 def build_ex_model(user_dim, movie_dim, latent_dim,sgd):
+    user_mat, movie_mat = retrive_extra()
+
     user_input = Input(shape=[1])
     movie_input = Input(shape=[1])
     user_embed = Embedding(user_dim, latent_dim, embeddings_regularizer=l2(0.00001))(user_input)
-    user_vec = Flatten()(user_embed)
+    
+    user_info = Embedding(user_dim,user_mat.shape[1],weights=[user_mat],trainable=False)(user_input)
+    user_info_vec = Dense(latent_dim,activation = 'linear')(user_info)
+    
+    user_vec = Flatten()(Add()([user_embed, user_info_vec]))
+    user_vec = Dropout(0.5)(user_vec)
 
     movie_embed = Embedding(movie_dim, latent_dim, embeddings_regularizer=l2(0.00001))(movie_input)
-    movie_vec = Flatten()(movie_embed)
-    # user_bias = Flatten()(Embedding(user_dim, 1, embeddings_initializer='zeros')(user_input))
-    # movie_bias = Flatten()(Embedding(movie_dim, 1, embeddings_initializer='zeros')(movie_input))
     
-    res = Concatenate()([user_vec, movie_vec])
-    res = Dense(128, activation='relu')(res)
-    res = Dropout(0.33)(res)
-    res = Dense(64,activation='relu')(res)
-    res = Dropout(0.33)(res)
-    res = Dense(32,activation='relu')(res)
-    res = Dropout(0.33)(res)
-    res = Dense(1, activation='linear')(res)
-
-    # res = Add()([res, user_bias, movie_bias])
+    movie_info = Embedding(movie_dim,movie_mat.shape[1],weights=[movie_mat],trainable=False)(movie_input)
+    movie_info_vec = Dense(latent_dim,activation = 'linear')(movie_info)
+    
+    movie_vec = Flatten()(Add()([movie_embed,movie_info_vec]))
+    movie_vec = Dropout(0.5)(movie_vec)
+    user_bias = Flatten()(Embedding(user_dim, 1)(user_input))
+    movie_bias = Flatten()(Embedding(movie_dim, 1)(movie_input))
+    res = Dot(axes=1)([user_vec, movie_vec])
+    res = Add()([res, user_bias, movie_bias])
+    # res = Dense(1,activation='linear')
     model = Model([user_input, movie_input], res)
     def rmse(y_true, y_pred): return K.sqrt( K.mean(((y_pred - y_true)*_std)**2) )
     model.compile(loss='mse', optimizer=sgd, metrics=[rmse])
@@ -137,21 +143,63 @@ def retrive_extra(user='users.csv', movie='movies.csv'):
     r = open(movie, encoding='latin-1').read()
     l = r.split('\n')[1:-1]
     m_data = []
+    index = []
+    yr = []
     for i in range(len(l)):
-        m_data.append(l[i].split('::')[2].split('|'))
-    return m_data
+        line = l[i].split('::')
+        index.append(int(line[0]))
+        m_data.append(line[2].split('|'))
+        yr.append(int(line[1][-5:-1]))
+
+    yr = np.array(yr, dtype=float)
+    yr = (yr - yr.mean()) / yr.std()
+
+
+    plane = [j for i in m_data for j in i]
+    category = []
+    for i in plane:
+        if i not in category:
+                category.append(i)
+    index = np.array(index, dtype=int)
+    movie_mat = np.zeros((index.max(),len(category)+1))
+    for i in range(len(index)):
+        one = [category.index(j) for j in m_data[i]]
+        movie_mat[index[i]-1, one] = 1
+    for i in range(len(movie_mat)):
+        if movie_mat[i].sum():
+            movie_mat[i]/=movie_mat[i].sum()
+    for i in range(len(index)):
+        movie_mat[index[i]-1, -1] = yr[i] 
+
+    # users.csv
+    u_data = pd.read_csv('users.csv',sep='::',engine='python').values
+    index = np.array(u_data.T[0],dtype=int)
+    occup = np.array(u_data.T[3],dtype=int)
+    age = np.array(u_data.T[2], dtype=float)
+    age = (age - age.mean()) / age.std()
+
+    user_mat = np.zeros((index.max(),33))
+    for i in range(len(index)):
+        user_mat[index[i]-1,0] = float(u_data.T[1][i]=='M')
+        user_mat[index[i]-1,1] = age[i]
+        user_mat[index[i]-1,2+occup[i]] = 1
+        user_mat[index[i]-1,23+int(u_data.T[4][i][0])] = 1
+
+    return user_mat, movie_mat
 
 def exam_dim(rg=[16,32,64,128,256,512,1024]):
     total_sc = []
     for i in rg:
         his = train(mf=True,dim=i)
-        score = np.round(his.history['val_rmse'].min(),5)
-        total_sc.append([i,score])
-        test(model_name='mf_model.h5', out_name='ans_dim_%d_val_%d.csv'%(i,score))
+        nhis = np.array(his.history['val_rmse'])
+        score = np.round(np.min(nhis),5)
+        idx = np.argmin(nhis)
+        total_sc.append([i,idx,score])
+        test(model_name='mf_model.h5', out_name='./to_sub/ans_dim_%d_val_%f_epo_%d.csv'%(i,score,idx))
     return total_sc
 
 
-def train(mf=False,ex=False,extra=False,bs=10000,dim=16,epo=300,sgd='adam',whole=False, nor=True):
+def train(mf=False,ex=False,extra=False,bs=10000,dim=16,epo=300,sgd='adam',whole=False, nor=True, bias=True):
     x, y, z = load_data(nor=nor)
     vx = None
     vy = None
@@ -163,7 +211,7 @@ def train(mf=False,ex=False,extra=False,bs=10000,dim=16,epo=300,sgd='adam',whole
     if mf:
         model_name = 'mf_model.h5'
         # sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
-        model = build_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd)
+        model = build_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd, bias)
     elif ex:
         model_name = 'ex_model.h5'
         model = build_ex_model(int(np.max(x) + 1), int(np.max(y) + 1), dim, sgd)
@@ -172,9 +220,17 @@ def train(mf=False,ex=False,extra=False,bs=10000,dim=16,epo=300,sgd='adam',whole
     ModelCheckpoint(filepath=model_name, monitor='val_rmse', mode='min',save_best_only=True)]
     history = None
     if not whole:
+        # if mf:
         history = model.fit([x, y],z, batch_size=bs, epochs=epo, validation_data=([vx,vy],vz), callbacks=cb, verbose=1)
+        # elif ex:
+        #     u,m = retrive_extra()
+        #     history = model.fit([u, m, x, y],z, batch_size=bs, epochs=epo, validation_data=([vx,vy],vz), callbacks=cb, verbose=1)
     else:
+        # if mf:
         history = model.fit([x, y],z, batch_size=bs, epochs=epo, callbacks=cb, verbose=1)
+        # elif ex:
+        #     u,m = retrive_extra()
+        #     history = model.fit([u, m, x, y],z, batch_size=bs, epochs=epo, callbacks=cb, verbose=1)
 
     model.save('model.h5')
     return history
