@@ -11,7 +11,6 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 import logging
 from output import output
 import sys, os
-from urllib.request import urlretrieve
 
 def load_test_data(testname='testing_data.txt',no_comma=False):
     test_data = open(testname).read()
@@ -84,8 +83,4 @@ def test(testname='testing_data.txt',filename = "ans.csv",model_name='model.h5',
     output(ans,name=filename)
 
 if __name__ == "__main__":
-    if not os.path.exists('./ensemble_82966.h5'):
-        _url = 'https://www.dropbox.com/s/zxgdldl6aiwxekw/ensemble_82966.h5?dl=1'
-        urlretrieve(_url, "ensemble_82966.h5")
     test(testname=sys.argv[1], filename=sys.argv[2], model_name='ensemble_82966.h5')
-    os.remove("ensemble_82966.h5")
