@@ -176,7 +176,7 @@ def retrive_extra(user='users.csv', movie='movies.csv'):
         movie_mat[index[i]-1, -1] = yr[i] 
 
     # users.csv
-    u_data = pd.read_csv('users.csv',sep='::',engine='python').values
+    u_data = pd.read_csv(user,sep='::',engine='python').values
     index = np.array(u_data.T[0],dtype=int)
     occup = np.array(u_data.T[3],dtype=int)
     age = np.array(u_data.T[2], dtype=float)
