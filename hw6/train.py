@@ -102,12 +102,16 @@ def load_data(nor=True):
         rate = (rate - rate.mean()) / rate.std()
     return a.T[1] - 1, a.T[2] - 1, rate
 
-def mean_std():
-    r = csv.reader(open('train.csv'))
-    l = list(r)[1:]
-    a = np.array(l, dtype=float)
-    rate = np.array(a.T[3][:])
-    return rate.mean(), rate.std()
+def mean_std(name=''):
+    if name=='':
+        m,s = np.load('mean_std.npy')
+        return m, s
+    else:
+        r = csv.reader(open(name))
+        l = list(r)[1:]
+        a = np.array(l, dtype=float)
+        rate = np.array(a.T[3][:])
+        return rate.mean(), rate.std()
 
 _mean, _std = mean_std()
 
