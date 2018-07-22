@@ -19,5 +19,5 @@
 [Matrix Factorization - Movie Rating](https://github.com/voidism/ML2018SPRING/blob/master/hw6/Report.pdf)  
 [kaggle competition](https://www.kaggle.com/c/ml2018-spring-hw6) rank 2
 ## Final Project
-[Dialogue Selection - Conversations in TV Shows](https://github.com/voidism/ML2018SPRING/blob/master/final/Machine%20Learning%20Final%20Project%20-%20conversations%20in%20TV%20shows.pdf)  
+[Response Selection - Conversations in TV Shows](https://github.com/voidism/ML2018SPRING/blob/master/final/Machine%20Learning%20Final%20Project%20-%20conversations%20in%20TV%20shows.pdf)  
 [kaggle competition](https://www.kaggle.com/c/ml-2018spring-final-tv-conversation) rank 6
